@@ -18,9 +18,11 @@ import os
 import shlex
 import logging
 import signal
+import json
+import re
+from pathlib import Path
 from pprint import pprint
 from tempfile import mkdtemp
-from etos_test_runner.test_regex import TEST_REGEX
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,6 +42,7 @@ class Executor:  # pylint: disable=too-many-instance-attributes
     report_path = "test_output.log"
     test_name = ""
     current_test = None
+    test_regex = {}
     test_checkouts = {}
     logger = logging.getLogger("Executor")
 
@@ -52,6 +55,7 @@ class Executor:  # pylint: disable=too-many-instance-attributes
         :param iut: IUT to execute test on.
         :type iut: :obj:`etr.lib.iut.Iut`
         """
+        self.load_regex()
         self.test = test
         self.tests = {}
 
@@ -80,6 +84,34 @@ class Executor:  # pylint: disable=too-many-instance-attributes
         self.etos = etos
         self.context = self.etos.config.get("context")
         self.result = True
+
+    def load_regex(self):
+        """Attempt to load regex file from environment variables.
+
+        The regex file is used to determine when a test case has triggered,
+        started, passed, failed, been skipped, raise error and the test name.
+        """
+        if os.getenv("self.test_regex"):
+            try:
+                path = Path(os.getenv("TEST_REGEX"))
+                if path.exists() and path.is_file():
+                    regex = json.load(path.open())
+                    for key, value in regex.items():
+                        self.test_regex[key] = re.compile(value)
+                else:
+                    self.logger.warning("%r is not a file or does not exist.", path)
+            except TypeError as exception:
+                self.logger.error("%r", exception)
+                self.logger.error("Wrong type when loading %r", path)
+            except re.error as exception:
+                self.logger.error("%r", exception)
+                self.logger.error("Failed to parse regex in file %r (%r)", path, value)
+            except json.decoder.JSONDecodeError as exception:
+                self.logger.error("%r", exception)
+                self.logger.error("Failed to load JSON %r", path)
+            except Exception as exception:
+                self.logger.error("%r", exception)
+                self.logger.error("Unknown error when loading regex JSON file.")
 
     def _checkout_tests(self, test_checkout):
         """Check out tests for this execution.
@@ -238,29 +270,29 @@ class Executor:  # pylint: disable=too-many-instance-attributes
         """
         if not isinstance(line, str):
             return
-        test_name = TEST_REGEX["test_name"].findall(line)
+        test_name = self.test_regex["test_name"].findall(line)
         if test_name:
             self.current_test = test_name[0]
             self.tests.setdefault(self.current_test, {})
-        if TEST_REGEX["triggered"].match(line):
+        if self.test_regex["triggered"].match(line):
             self.tests[self.current_test]["triggered"] = self._triggered(
                 self.current_test
             )
-        if TEST_REGEX["started"].match(line):
+        if self.test_regex["started"].match(line):
             self.tests[self.current_test]["started"] = self._started(self.current_test)
-        if TEST_REGEX["passed"].match(line):
+        if self.test_regex["passed"].match(line):
             self.tests[self.current_test]["finished"] = self._finished(
                 self.current_test, "PASSED"
             )
-        if TEST_REGEX["failed"].match(line):
+        if self.test_regex["failed"].match(line):
             self.tests[self.current_test]["finished"] = self._finished(
                 self.current_test, "FAILED"
             )
-        if TEST_REGEX["error"].match(line):
+        if self.test_regex["error"].match(line):
             self.tests[self.current_test]["finished"] = self._finished(
                 self.current_test, "ERROR"
             )
-        if TEST_REGEX["skipped"].match(line):
+        if self.test_regex["skipped"].match(line):
             self.tests[self.current_test]["finished"] = self._finished(
                 self.current_test, "SKIPPED"
             )
@@ -284,7 +316,7 @@ class Executor:  # pylint: disable=too-many-instance-attributes
             )
             self.logger.info("Start test.")
             for _, line in iterator:
-                if TEST_REGEX:
+                if self.test_regex:
                     self.parse(line)
             self.logger.info("Finished.")
             self.result = line
