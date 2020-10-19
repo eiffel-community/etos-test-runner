@@ -15,11 +15,13 @@
 # limitations under the License.
 """IUT data structure module."""
 import os
+import logging
 from packageurl import PackageURL
 
 
 class Iut:  # pylint: disable=too-few-public-methods
     """Data object for IUTs."""
+    logger = logging.getLogger(__name__)
 
     def __init__(self, product):
         """Initialize.
@@ -28,18 +30,25 @@ class Iut:  # pylint: disable=too-few-public-methods
                         Should be the response from pool plugin list.
         :type product: dict
         """
-        try:
-            self.load_environment(product.pop("environment"))
-        except KeyError:
-            pass
-        try:
-            self.prepare(product.pop("commands"))
-        except KeyError:
-            pass
+        self.test_runner = {}
+        self.steps = {"environment": self.load_environment}
+
         product["identity"] = PackageURL.from_string(product["identity"])
         for key, value in product.items():
             setattr(self, key, value)
         self._product_dict = product
+        self.prepare()
+
+    def prepare(self):
+        """Prepare IUT for testing."""
+        self.logger.info("Preparing IUT %r", self)
+        for step, definition in self.test_runner.get("steps", {}).items():
+            step_method = self.steps.get(step)
+            if step_method is None:
+                self.logger.error("Step %r does not exist. Available %r", step, self.steps)
+                continue
+            self.logger.info("Executing step %r", step)
+            step_method(definition)
 
     @staticmethod
     def load_environment(environment):
@@ -50,13 +59,6 @@ class Iut:  # pylint: disable=too-few-public-methods
         """
         for key, value in environment.items():
             os.environ[key] = value
-
-    def prepare(self, commands):
-        """Prepare IUT and IUT environment for tests.
-
-        :param commands: Commands to execute.
-        :type commands: list
-        """
 
     @property
     def as_dict(self):
