@@ -17,6 +17,8 @@
 import os
 import logging
 from packageurl import PackageURL
+from collections import OrderedDict
+from jsontas.jsontas import JsonTas
 
 
 class Iut:  # pylint: disable=too-few-public-methods
@@ -37,6 +39,8 @@ class Iut:  # pylint: disable=too-few-public-methods
         for key, value in product.items():
             setattr(self, key, value)
         self._product_dict = product
+        self.jsontas = JsonTas()
+        self.jsontas.dataset.add("iut", self._product_dict)
         self.prepare()
 
     def prepare(self):
@@ -48,7 +52,9 @@ class Iut:  # pylint: disable=too-few-public-methods
                 self.logger.error("Step %r does not exist. Available %r", step, self.steps)
                 continue
             self.logger.info("Executing step %r", step)
-            step_method(definition)
+            definition = OrderedDict(**definition)
+            step_result = self.jsontas.run(json_data=definition)
+            step_method(step_result)
 
     @staticmethod
     def load_environment(environment):
