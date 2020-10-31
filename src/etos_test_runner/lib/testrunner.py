@@ -17,14 +17,14 @@
 import time
 import os
 import logging
+from pathlib import Path
 from pprint import pprint
 
 from etos_test_runner.lib.graphql import request_test_suite_started
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.logs import LogHandler
 from etos_test_runner.lib.executor import Executor
-
-BASE = os.path.dirname(os.path.abspath(__file__))
+from etos_test_runner.lib.workspace import Workspace
 
 
 class TestRunner:
@@ -48,12 +48,10 @@ class TestRunner:
         self.issuer = {"name": "ETOS Test Runner"}
 
         self.env = os.environ
-        if not os.path.isdir(os.getenv("TEST_ARTIFACT_PATH")):
-            os.makedirs(os.getenv("TEST_ARTIFACT_PATH"))
-        if not os.path.isdir(os.getenv("TEST_LOCAL_PATH")):
-            os.makedirs(os.getenv("TEST_LOCAL_PATH"))
-        if not os.path.isdir(os.getenv("GLOBAL_ARTIFACT_PATH")):
-            os.makedirs(os.getenv("GLOBAL_ARTIFACT_PATH"))
+
+        Path(os.getenv("TEST_ARTIFACT_PATH")).mkdir(exist_ok=True)
+        Path(os.getenv("TEST_LOCAL_PATH")).mkdir(exist_ok=True)
+        Path(os.getenv("GLOBAL_ARTIFACT_PATH")).mkdir(exist_ok=True)
 
     def test_suite_started(self):
         """Publish a test suite started event.
@@ -131,17 +129,19 @@ class TestRunner:
         """
         recipes = self.config.get("recipes")
         result = True
-        for num, test in enumerate(recipes):
-            self.logger.info("Executing test %s/%s", num + 1, len(recipes))
-            with Executor(test, self.iut, self.etos) as executor:
-                self.logger.info("Starting test '%s'", executor.test_name)
-                executor.execute()
-                self.logger.info("Gather logs.")
-                log_handler.gather_logs_for_executor(executor)
+        with Workspace() as workspace:
+            for num, test in enumerate(recipes):
+                self.logger.info("Executing test %s/%s", num + 1, len(recipes))
+                with Executor(test, self.iut, self.etos) as executor:
+                    self.logger.info("Starting test '%s'", executor.test_name)
+                    executor.execute(workspace)
+                    self.logger.info("Gather logs.")
+                    log_handler.gather_logs_for_executor(executor)
 
-                if not executor.result:
-                    result = executor.result
-                self.logger.info("Test finished. Result: %s.", executor.result)
+                    if not executor.result:
+                        result = executor.result
+                    self.logger.info("Test finished. Result: %s.", executor.result)
+        log_handler.upload_workspace(workspace)
         return result
 
     def outcome(self, result, executed, description):

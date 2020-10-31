@@ -16,13 +16,14 @@
 """IUT data structure module."""
 import os
 import logging
-from packageurl import PackageURL
 from collections import OrderedDict
+from packageurl import PackageURL
 from jsontas.jsontas import JsonTas
 
 
 class Iut:  # pylint: disable=too-few-public-methods
     """Data object for IUTs."""
+
     logger = logging.getLogger(__name__)
 
     def __init__(self, product):
@@ -49,7 +50,9 @@ class Iut:  # pylint: disable=too-few-public-methods
         for step, definition in self.test_runner.get("steps", {}).items():
             step_method = self.steps.get(step)
             if step_method is None:
-                self.logger.error("Step %r does not exist. Available %r", step, self.steps)
+                self.logger.error(
+                    "Step %r does not exist. Available %r", step, self.steps
+                )
                 continue
             self.logger.info("Executing step %r", step)
             definition = OrderedDict(**definition)

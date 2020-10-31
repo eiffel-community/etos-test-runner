@@ -21,10 +21,10 @@ import signal
 import json
 import re
 from pathlib import Path
+from shutil import copy
 from pprint import pprint
-from tempfile import mkdtemp
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = Path(__file__).parent.absolute()
 
 
 class TestCheckoutTimeout(TimeoutError):
@@ -36,17 +36,15 @@ def _test_checkout_signal_handler(signum, frame):  # pylint:disable=unused-argum
     raise TestCheckoutTimeout("Took too long to checkout test cases.")
 
 
-class Executor:  # pylint: disable=too-many-instance-attributes
+class Executor:  # pylint:disable=too-many-instance-attributes
     """Execute a single test-case, -class, -module, -folder etc."""
 
     report_path = "test_output.log"
     test_name = ""
     current_test = None
     test_regex = {}
-    test_checkouts = {}
     logger = logging.getLogger("Executor")
 
-    # pylint: disable=too-many-arguments
     def __init__(self, test, iut, etos):
         """Initialize.
 
@@ -54,6 +52,8 @@ class Executor:  # pylint: disable=too-many-instance-attributes
         :type test: str
         :param iut: IUT to execute test on.
         :type iut: :obj:`etr.lib.iut.Iut`
+        :param etos: ETOS library instance.
+        :type etos: :obj:`etos_lib.etos.Etos`
         """
         self.load_regex()
         self.test = test
@@ -109,7 +109,7 @@ class Executor:  # pylint: disable=too-many-instance-attributes
             except json.decoder.JSONDecodeError as exception:
                 self.logger.error("%r", exception)
                 self.logger.error("Failed to load JSON %r", path)
-            except Exception as exception:
+            except Exception as exception:  # pylint:disable=broad-except
                 self.logger.error("%r", exception)
                 self.logger.error("Unknown error when loading regex JSON file.")
 
@@ -119,18 +119,20 @@ class Executor:  # pylint: disable=too-many-instance-attributes
         :param test_checkout: Test checkout parameters from test suite.
         :type test_checkout: list
         """
-        with open(os.path.join(BASE, "checkout.sh"), "w") as checkout_file:
+        checkout = Path().joinpath("checkout.sh")
+        with checkout.open(mode="w") as checkout_file:
             checkout_file.write('eval "$(pyenv init -)"\n')
             checkout_file.write("pyenv shell --unset\n")
             for command in test_checkout:
                 checkout_file.write("{} || exit 1\n".format(command))
 
+        self.logger.info("Checkout script:\n" "%s", checkout.read_text())
+
         signal.signal(signal.SIGALRM, _test_checkout_signal_handler)
         signal.alarm(60)
         try:
-            checkout = os.path.join(BASE, "checkout.sh")
             success, output = self.etos.utils.call(
-                ["/bin/bash", checkout], shell=True, wait_output=False
+                ["/bin/bash", str(checkout)], shell=True, wait_output=False
             )
         finally:
             signal.alarm(0)
@@ -138,29 +140,14 @@ class Executor:  # pylint: disable=too-many-instance-attributes
             pprint(output)
             raise Exception("Could not checkout tests using '{}'".format(test_checkout))
 
-    def test_directory(self, test_checkout):
-        """Test directory for the test checkout.
-
-        If a test directory does not already exist, generate it by calling the
-        supplied command from test suite.
-        If it does exist, just return that directory.
-
-        :param test_checkout: Test checkout parameters from test suite.
-        :type test_checkout: list
-        :return: Folder where to execute a testcase
-        :rtype: str
-        """
-        string_checkout = " ".join(test_checkout)
-        if self.test_checkouts.get(string_checkout) is None:
-            test_folder = mkdtemp(dir=os.getcwd())
-            with self.etos.utils.chdir(test_folder):
-                self._checkout_tests(test_checkout)
-            self.test_checkouts[string_checkout] = test_folder
-        return self.test_checkouts.get(string_checkout)
-
     def _build_test_command(self):
         """Build up the actual test command based on data from event."""
-        executor = os.path.join(BASE, "executor.sh")
+        base_executor = Path(BASE).joinpath("executor.sh")
+        executor = Path().joinpath("executor.sh")
+        copy(base_executor, executor)
+
+        self.logger.info("Executor script:\n" "%s", executor.read_text())
+
         test_command = ""
         parameters = []
 
@@ -170,8 +157,8 @@ class Executor:  # pylint: disable=too-many-instance-attributes
             else:
                 parameters.append("{}={}".format(parameter, value))
 
-        test_command = "{} {} {} 2>&1".format(
-            executor, self.test_command, " ".join(parameters)
+        test_command = "./{} {} {} 2>&1".format(
+            str(executor), self.test_command, " ".join(parameters)
         )
         return test_command
 
@@ -182,16 +169,20 @@ class Executor:  # pylint: disable=too-many-instance-attributes
     def __exit__(self, _type, value, traceback):
         """Exit context."""
 
-    @staticmethod
-    def _pre_execution(command):
+    def _pre_execution(self, command):
         """Write pre execution command to a shell script.
 
         :param command: Environment and pre execution shell command to write to shell script.
         :type command: str
         """
-        with open(os.path.join(BASE, "environ.sh"), "w") as environ_file:
+        environ = Path().joinpath("environ.sh")
+        with environ.open(mode="w") as environ_file:
             for arg in command:
                 environ_file.write("{} || exit 1\n".format(arg))
+        self.logger.info(
+            "Pre-execution script (includes ENVIRONMENT):\n" "%s",
+            environ.read_text(),
+        )
 
     def _build_environment_command(self):
         """Build command for setting environment variables prior to execution.
@@ -297,26 +288,33 @@ class Executor:  # pylint: disable=too-many-instance-attributes
                 self.current_test, "SKIPPED"
             )
 
-    def execute(self):
-        """Execute a test case."""
-        self.logger.info("Figure out test directory.")
-        test_directory = self.test_directory(self.checkout_command)
+    def execute(self, workspace):
+        """Execute a test case.
+
+        :param workspace: Workspace instance for creating test directories.
+        :type workspace: :obj:`etos_test_runner.lib.workspace.Workspace`
+        """
         line = False
-        self.logger.info("Change directory to test directory '%s'.", test_directory)
-        with self.etos.utils.chdir(test_directory):
-            self.report_path = os.path.join(test_directory, self.report_path)
-            self.logger.info("Report path: %s", self.report_path)
-            self.logger.info("Executing pre-execution script.")
+        with workspace.test_directory(
+            " ".join(self.checkout_command), self._checkout_tests, self.checkout_command
+        ) as test_directory:
+            self.report_path = test_directory.joinpath(self.report_path)
+            self.logger.info("Report path: %r", self.report_path)
+
+            self.logger.info("Build pre-execution script.")
             self._pre_execution(self._build_environment_command())
+
             self.logger.info("Build test command")
             command = self._build_test_command()
-            self.logger.info("Run test command: %s", command)
+
+            self.logger.info("Run test command: %r", command)
             iterator = self.etos.utils.iterable_call(
                 [command], shell=True, executable="/bin/bash", output=self.report_path
             )
-            self.logger.info("Start test.")
+
+            self.logger.info("Wait for test to finish.")
             for _, line in iterator:
                 if self.test_regex:
                     self.parse(line)
-            self.logger.info("Finished.")
             self.result = line
+            self.logger.info("Finished with result %r.", self.result)

@@ -236,6 +236,21 @@ class LogHandler:  # pylint:disable=too-many-arguments,too-many-instance-attribu
                     self.logger.error("Attempted upload of %r", log)
         return upload["url"]
 
+    def upload_workspace(self, workspace):
+        """Upload compressed workspace to log area.
+
+        :param workspace: Workspace to upload.
+        :type workspace: :obj:`etos_test_runner.lib.workspace.Workspace`
+        """
+        filename, filepath = self._log_name_and_path(
+            workspace.compressed_workspace.name, str(workspace.compressed_workspace)
+        )
+        log = {"file": filepath, "name": filename, "folder": self.log_storage_path}
+        log["uri"] = self._upload_log(
+            self.context, log["file"], log["name"], log["folder"]
+        )
+        self.logs.append(log)
+
     def _rename_log_file_if_already_exists(self, target_path, log):
         """Rename a log file if it already exists.
 

@@ -131,11 +131,8 @@ class ETR:
             activity_name = self.etos.config.get("test_config").get("name")
             triggered = self.etos.events.send_activity_triggered(activity_name)
             self._clear_artifacts()
-            top_dir = os.getcwd()
-
-            with self.etos.utils.chdir(top_dir):
-                self.etos.events.send_activity_started(triggered)
-                result = self._run_tests()
+            self.etos.events.send_activity_started(triggered)
+            result = self._run_tests()
         except Exception as exc:  # pylint:disable=broad-except
             self.etos.events.send_activity_finished(
                 triggered, {"conclusion": "FAILED", "description": str(exc)}
