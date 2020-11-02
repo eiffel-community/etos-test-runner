@@ -16,11 +16,13 @@
 """Tests full executions."""
 import os
 import logging
+from copy import deepcopy
 from shutil import rmtree
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
+from etos_lib.lib.debug import Debug
 from etos_test_runner.etr import ETR
 
 
@@ -83,41 +85,30 @@ class TestFullExecution(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Create patcher objects."""
-        cls.patchers = []
-        cls._patch_wait_for_request()
-        cls._patch_http_request()
-        cls._patch_test_suite_started_request()
+        """Create a debug instance."""
+        cls.debug = Debug()
 
-    @classmethod
-    def tearDownClass(cls):
-        """Stop patchers."""
-        for patcher in cls.patchers:
-            patcher.stop()
-
-    @classmethod
-    def _patch_wait_for_request(cls):
+    def _patch_wait_for_request(self):
         """Patch the ETOS library wait for request method."""
         patcher = patch("etos_lib.etos.Http.wait_for_request")
-        cls.patchers.append(patcher)
-        cls.wait_for_request = patcher.start()
-        cls.wait_for_request.return_value = [SUITE]
+        self.patchers.append(patcher)
+        self.wait_for_request = patcher.start()
+        self.suite = deepcopy(SUITE)
+        self.wait_for_request.return_value = [self.suite]
 
-    @classmethod
-    def _patch_http_request(cls):
+    def _patch_http_request(self):
         """Patch the ETOS library http request method."""
         patcher = patch("etos_lib.etos.Http.request")
-        cls.patchers.append(patcher)
-        cls.http_request = patcher.start()
-        cls.http_request.return_value = True
+        self.patchers.append(patcher)
+        self.http_request = patcher.start()
+        self.http_request.return_value = True
 
-    @classmethod
-    def _patch_test_suite_started_request(cls):
+    def _patch_test_suite_started_request(self):
         """Patch the GraphQL request for test suite started."""
         patcher = patch("etos_test_runner.lib.testrunner.request_test_suite_started")
-        cls.patchers.append(patcher)
-        cls.request_test_suite_started = patcher.start()
-        cls.request_test_suite_started.return_value = [
+        self.patchers.append(patcher)
+        self.request_test_suite_started = patcher.start()
+        self.request_test_suite_started.return_value = [
             {
                 "data": {"testSuiteCategories": []},
                 "meta": {"id": "577381ad-8356-4939-ab77-02e7abe06699"},
@@ -125,18 +116,24 @@ class TestFullExecution(TestCase):
         ]
 
     def setUp(self):
-        """Create a test folder to execute from."""
+        """Create patch objects and a test folder to execute from."""
+        self.patchers = []
         self.original = Path.cwd()
         self.root = Path().joinpath("testfolder").absolute()
         if self.root.exists():
             rmtree(self.root)
         self.root.mkdir()
         os.chdir(self.root)
+        self._patch_wait_for_request()
+        self._patch_http_request()
+        self._patch_test_suite_started_request()
 
     def tearDown(self):
-        """Clear the test folder."""
+        """Clear the test folder and patchers."""
         os.chdir(self.original)
         rmtree(self.root, ignore_errors=True)
+        for patcher in self.patchers:
+            patcher.stop()
 
     @staticmethod
     @contextmanager
@@ -165,10 +162,13 @@ class TestFullExecution(TestCase):
         :param events: All events sent, in order.
         :type events: deque
         """
+        self.logger.info(events)
         event_names_in_order = [
             "EiffelActivityTriggeredEvent",
             "EiffelActivityStartedEvent",
             "EiffelTestSuiteStartedEvent",
+            "EiffelArtifactCreatedEvent",
+            "EiffelArtifactPublishedEvent",
             "EiffelTestSuiteFinishedEvent",
             "EiffelConfidenceLevelModifiedEvent",
             "EiffelActivityFinishedEvent",
@@ -195,9 +195,6 @@ class TestFullExecution(TestCase):
             "ETOS_DISABLE_RECEIVING_EVENTS": "1",
             "ETOS_GRAPHQL_SERVER": "http://localhost/graphql",
             "SUB_SUITE_URL": "http://localhost/download_suite",
-            "GLOBAL_ARTIFACT_PATH": self.root.joinpath("global"),
-            "TEST_ARTIFACT_PATH": self.root.joinpath("artifacts"),
-            "TEST_LOCAL_PATH": self.root.joinpath("local"),
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
         with self.environ(environment):
@@ -206,7 +203,7 @@ class TestFullExecution(TestCase):
             result = etr.run_etr()
 
             self.logger.info("STEP: Verify that events were sent in the correct order.")
-            self.validate_event_name_order(etr.etos.debug.events_published.copy())
+            self.validate_event_name_order(self.debug.events_published.copy())
 
             self.logger.info("STEP: Verify that ETR returned with status code 0.")
             # Result is either dictionary with outcome or an exit status code.

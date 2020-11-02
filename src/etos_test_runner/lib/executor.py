@@ -166,11 +166,13 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         return test_command
 
     def __enter__(self):
-        """Enter context."""
+        """Enter context and set current test."""
+        self.etos.config.set("current_test", self.test_name)
         return self
 
     def __exit__(self, _type, value, traceback):
-        """Exit context."""
+        """Exit context and unset current test."""
+        self.etos.config.set("current_test", None)
 
     def _pre_execution(self, command):
         """Write pre execution command to a shell script.
@@ -302,9 +304,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             " ".join(self.checkout_command),
             self._checkout_tests,
             self.checkout_command,
-            workspace.workspace,
+            workspace.workspace
         ) as test_directory:
-            self.report_path = test_directory.joinpath(self.report_path)
+            self.report_path = test_directory.joinpath(f"logs/{self.report_path}")
             self.logger.info("Report path: %r", self.report_path)
 
             self.logger.info("Build pre-execution script.")

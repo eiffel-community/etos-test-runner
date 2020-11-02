@@ -19,6 +19,7 @@ import logging
 from shutil import rmtree, unpack_archive
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import Mock
 from etos_test_runner.lib.workspace import Workspace
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -57,7 +58,7 @@ class TestWorkspace(TestCase):
             2. Verify that the workspace library did not create a workspace directory.
         """
         self.logger.info("STEP: Initialize the workspace library.")
-        self.workspace = Workspace()
+        self.workspace = Workspace(Mock())
 
         self.logger.info(
             "STEP: Verify that the workspace library did not create a workspace "
@@ -79,7 +80,7 @@ class TestWorkspace(TestCase):
             4. Verify that the workspace library compressed the main workspace directory.
         """
         self.logger.info("STEP: Initialize the workspace library as a context manager.")
-        with Workspace() as workspace:
+        with Workspace(Mock()) as workspace:
             self.workspace = workspace
             self.logger.info(
                 "STEP: Verify that the workspace library created the main "
@@ -111,7 +112,7 @@ class TestWorkspace(TestCase):
             3. Verify that the directory was compressed using the gztar format.
         """
         self.logger.info("STEP: Create the workspace directory to be compressed.")
-        workspace = Workspace()
+        workspace = Workspace(Mock)
         directory = Path.cwd().joinpath("workspace")
         directory.mkdir()
         workspace.workspace = directory
@@ -147,7 +148,7 @@ class TestWorkspace(TestCase):
             2. Verify that an exception was raised.
         """
         self.logger.info("STEP: Attempt to compress a directory that does not exist.")
-        self.workspace = Workspace()
+        self.workspace = Workspace(Mock())
         with self.assertRaises(Exception):
             self.logger.info("STEP: Verify that an exception was raised.")
             self.workspace.compress()
@@ -164,7 +165,7 @@ class TestWorkspace(TestCase):
             3. Verify that directory was created and changed to.
         """
         self.logger.info("STEP: Initialize the workspace.")
-        with Workspace() as workspace:
+        with Workspace(Mock()) as workspace:
             self.workspace = workspace
 
             self.logger.info("STEP: Enter test directory in a context manager.")
@@ -192,7 +193,7 @@ class TestWorkspace(TestCase):
             5. Verify that the folder was re-used.
         """
         self.logger.info("STEP: Initialize the workspace.")
-        with Workspace() as workspace:
+        with Workspace(Mock()) as workspace:
             self.workspace = workspace
 
             self.logger.info(
@@ -244,7 +245,7 @@ class TestWorkspace(TestCase):
             calls.append(1)
 
         self.logger.info("STEP: Initialize the workspace.")
-        with Workspace() as workspace:
+        with Workspace(Mock()) as workspace:
             self.workspace = workspace
 
             self.logger.info(
@@ -274,7 +275,7 @@ class TestWorkspace(TestCase):
             2. Verify that an exception was raised.
         """
         self.logger.info("STEP: Enter a test directory without a workspace.")
-        self.workspace = Workspace()
+        self.workspace = Workspace(Mock())
         self.logger.info("STEP: Verify that an exception was raised.")
         with self.assertRaises(Exception):
             with self.workspace.test_directory("dir1"):

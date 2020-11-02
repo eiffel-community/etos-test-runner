@@ -20,7 +20,6 @@ import argparse
 import sys
 import logging
 import os
-import shutil
 import signal
 from pprint import pprint
 
@@ -35,7 +34,6 @@ from etos_test_runner.lib.iut import Iut
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 _LOGGER = logging.getLogger(__name__)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGFORMAT = "[%(asctime)s] %(levelname)s:%(message)s"
 logging.basicConfig(
     level=logging.DEBUG,
@@ -76,13 +74,7 @@ class ETR:
 
         self.etos.start_publisher()
         self.tests_url = os.getenv("SUB_SUITE_URL")
-        os.environ["GLOBAL_ARTIFACT_PATH"] = os.getenv(
-            "GLOBAL_ARTIFACT_PATH", "/home/etos/global"
-        )
-        os.environ["TEST_ARTIFACT_PATH"] = os.getenv(
-            "TEST_ARTIFACT_PATH", "/home/etos/artifacts"
-        )
-        os.environ["TEST_LOCAL_PATH"] = os.getenv("TEST_LOCAL_PATH", "/home/etos/local")
+
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
 
     @staticmethod
@@ -109,16 +101,6 @@ class ETR:
         test_runner = TestRunner(iut, self.etos)
         return test_runner.execute()
 
-    @staticmethod
-    def _clear_artifacts():
-        """Clear old artifacts from file system."""
-        artifact_path = os.getenv("TEST_ARTIFACT_PATH")
-        local_path = os.getenv("TEST_LOCAL_PATH")
-        if os.path.exists(artifact_path):
-            shutil.rmtree(artifact_path, ignore_errors=True)
-        if os.path.exists(local_path):
-            shutil.rmtree(local_path, ignore_errors=True)
-
     def run_etr(self):
         """Send activity events and run ETR.
 
@@ -130,7 +112,6 @@ class ETR:
         try:
             activity_name = self.etos.config.get("test_config").get("name")
             triggered = self.etos.events.send_activity_triggered(activity_name)
-            self._clear_artifacts()
             self.etos.events.send_activity_started(triggered)
             result = self._run_tests()
         except Exception as exc:  # pylint:disable=broad-except

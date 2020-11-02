@@ -1,3 +1,4 @@
 [messages control]
 disable=
-    fixme
+    fixme,
+    duplicate-code

@@ -21,3 +21,17 @@ If you don't know what this is for, just leave it empty.
 Read more about conftest.py under:
 https://pytest.org/latest/plugins.html
 """
+import pytest
+from etos_lib.lib.debug import Debug
+from etos_lib.lib.config import Config
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_etos_lib_configurations():
+    """Make sure that etos library configuration is cleared after each test."""
+    config = Config()
+    debug = Debug()
+    yield
+    config.reset()
+    debug.events_received.clear()
+    debug.events_published.clear()

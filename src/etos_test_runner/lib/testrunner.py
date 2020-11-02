@@ -17,14 +17,13 @@
 import time
 import os
 import logging
-from pathlib import Path
 from pprint import pprint
 
 from etos_test_runner.lib.graphql import request_test_suite_started
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
-from etos_test_runner.lib.logs import LogHandler
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.workspace import Workspace
+from etos_test_runner.lib.log_area import LogArea
 
 
 class TestRunner:
@@ -44,14 +43,9 @@ class TestRunner:
         self.iut = iut
         self.config = self.etos.config.get("test_config")
 
+        self.log_area = LogArea(self.etos)
         self.iut_monitoring = IutMonitoring(self.iut)
         self.issuer = {"name": "ETOS Test Runner"}
-
-        self.env = os.environ
-
-        Path(os.getenv("TEST_ARTIFACT_PATH")).mkdir(exist_ok=True)
-        Path(os.getenv("TEST_LOCAL_PATH")).mkdir(exist_ok=True)
-        Path(os.getenv("GLOBAL_ARTIFACT_PATH")).mkdir(exist_ok=True)
 
     def test_suite_started(self):
         """Publish a test suite started event.
@@ -119,29 +113,24 @@ class TestRunner:
                 host={"name": os.getenv("HOSTNAME"), "user": "etos"},
             )
 
-    def run_tests(self, log_handler):
+    def run_tests(self):
         """Execute test recipes within a test executor.
 
-        :param log_handler: Log handler for gathering logs.
-        :type log_handler: :obj:`etr.lib.logs.LogHandler`
         :return: Result of test execution.
         :rtype: bool
         """
         recipes = self.config.get("recipes")
         result = True
-        with Workspace() as workspace:
+        with Workspace(self.log_area) as workspace:
             for num, test in enumerate(recipes):
                 self.logger.info("Executing test %s/%s", num + 1, len(recipes))
                 with Executor(test, self.iut, self.etos) as executor:
                     self.logger.info("Starting test '%s'", executor.test_name)
                     executor.execute(workspace)
-                    self.logger.info("Gather logs.")
-                    log_handler.gather_logs_for_executor(executor)
 
                     if not executor.result:
                         result = executor.result
                     self.logger.info("Test finished. Result: %s.", executor.result)
-        log_handler.upload_workspace(workspace)
         return result
 
     def outcome(self, result, executed, description):
@@ -205,15 +194,9 @@ class TestRunner:
         main_suite_id = self.main_suite_id(self.etos.config.get("context"))
         self.logger.info("Send test environment events.")
         self.environment(sub_suite_id)
+        self.etos.config.set("main_suite_id", main_suite_id)
+        self.etos.config.set("sub_suite_id", sub_suite_id)
 
-        self.logger.info("Initialize loghandler.")
-        log_handler = LogHandler(
-            main_suite_id,
-            sub_suite_id,
-            self.etos.config.get("context"),
-            self.iut,
-            self.etos,
-        )
         self.logger.info("Start IUT monitoring.")
         self.iut_monitoring.start_monitoring()
 
@@ -221,7 +204,7 @@ class TestRunner:
         description = None
         try:
             self.logger.info("Starting test executor.")
-            result = self.run_tests(log_handler)
+            result = self.run_tests()
             executed = True
         except Exception as exception:  # pylint:disable=broad-except
             result = False
@@ -232,8 +215,6 @@ class TestRunner:
             self.logger.info("Stop IUT monitoring.")
             self.iut_monitoring.stop_monitoring()
 
-            self.logger.info("Gather global test logs.")
-            log_handler.gather_global_logs()
             self.logger.info("Figure out test outcome.")
             outcome = self.outcome(result, executed, description)
             pprint(outcome)
@@ -243,7 +224,7 @@ class TestRunner:
                 test_suite_started,
                 links={"CONTEXT": self.etos.config.get("context")},
                 outcome=outcome,
-                persistentLogs=log_handler.persistent_logs,
+                persistentLogs=self.log_area.persistent_logs,
             )
             self.confidence_level(result, test_suite_started)
         timeout = time.time() + 30
