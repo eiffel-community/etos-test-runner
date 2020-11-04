@@ -480,7 +480,7 @@ class TestLogUpload(TestCase):
             my_artifact = artifact_published.pop(0)
             url = self.suite["log_area"]["upload"]["url"].format(
                 context=self.suite["context"],
-                name=artifact,
+                name="",
                 folder=f"{self.main_suite_id}/{sub_suite_started.meta.event_id}",
             )
             self.assertListEqual(
@@ -490,7 +490,7 @@ class TestLogUpload(TestCase):
 
             url = self.suite["log_area"]["upload"]["url"].format(
                 context=self.suite["context"],
-                name="workspace.tar.gz",
+                name="",
                 folder=f"{self.main_suite_id}/{sub_suite_started.meta.event_id}",
             )
             workspace = artifact_published.pop(0)

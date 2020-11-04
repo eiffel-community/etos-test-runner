@@ -169,18 +169,16 @@ class LogArea:
             },
         )
 
-    def _artifact_published(self, artifact_created, artifacts):
+    def _artifact_published(self, artifact_created, published_url):
         """Send artifact published event.
 
         :param artifact_created: The created artifact to publish.
         :type artifact_created: :obj:`eiffellib.events.EiffelArtifactCreatedEvent`
-        :param artifacts: Artifacts to send published for.
-        :type artifacts: list
+        :param published_url: URL to the published directory.
+        :type published_url: str
         """
         log_area_type = self.log_area.get("type", "OTHER")
-        locations = []
-        for artifact in artifacts:
-            locations.append({"uri": artifact["uri"], "type": log_area_type})
+        locations = [{"uri": published_url, "type": log_area_type}]
         self.etos.events.send_artifact_published_event(
             locations,
             artifact_created,
@@ -212,7 +210,15 @@ class LogArea:
             )
             self.artifacts.append(artifact)
             artifact["file"].unlink()
-        self._artifact_published(artifact_created, artifacts)
+
+        upload = deepcopy(self.log_area.get("upload"))
+        data = {
+            "context": self.etos.config.get("context"),
+            "folder": log_area_folder,
+            "name": "",
+        }
+        published_url = upload["url"].format(**data)
+        self._artifact_published(artifact_created, published_url)
 
     def __upload(self, context, log, name, folder):
         """Upload log to a storage location.
