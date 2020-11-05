@@ -113,13 +113,16 @@ class Executor:  # pylint:disable=too-many-instance-attributes
                 self.logger.error("%r", exception)
                 self.logger.error("Unknown error when loading regex JSON file.")
 
-    def _checkout_tests(self, test_checkout):
+    def _checkout_tests(self, test_checkout, workspace):
         """Check out tests for this execution.
 
         :param test_checkout: Test checkout parameters from test suite.
         :type test_checkout: list
+        :param workspace: The workspace directory where the checkout script should be placed.
+        :type workspace: :obj:`pathlib.Path`
         """
-        checkout = Path().joinpath("checkout.sh")
+        test_directory_name = Path().absolute().name
+        checkout = workspace.joinpath(f"checkout_{test_directory_name}.sh")
         with checkout.open(mode="w") as checkout_file:
             checkout_file.write('eval "$(pyenv init -)"\n')
             checkout_file.write("pyenv shell --unset\n")
@@ -296,7 +299,10 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         line = False
         with workspace.test_directory(
-            " ".join(self.checkout_command), self._checkout_tests, self.checkout_command
+            " ".join(self.checkout_command),
+            self._checkout_tests,
+            self.checkout_command,
+            workspace.workspace,
         ) as test_directory:
             self.report_path = test_directory.joinpath(self.report_path)
             self.logger.info("Report path: %r", self.report_path)

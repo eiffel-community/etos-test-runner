@@ -40,7 +40,9 @@ SUITE = {
                 {"key": "EXECUTE", "value": ["echo 'this is the pre-execution step'"]},
                 {
                     "key": "CHECKOUT",
-                    "value": ["echo 'this is the checkout step'"],
+                    "value": [
+                        "git clone https://github.com/eiffel-community/etos-test-runner.git ."
+                    ],
                 },
             ],
             "id": "6e8d29eb-4b05-4f5e-9207-0c94438479c7",
