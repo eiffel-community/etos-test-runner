@@ -209,9 +209,13 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :return: Test case triggered event created and sent.
         :rtype: :obj:`eiffellib.events.eiffel_test_case_triggered_event.EiffelTestCaseTriggeredEvent`  # pylint:disable=line-too-long
         """
-        return self.etos.events.send_test_case_triggered(
-            {"id": test_name}, self.iut.artifact, links={"CONTEXT": self.context}
+        triggered = self.etos.events.send_test_case_triggered(
+            {"id": test_name},
+            self.etos.config.get("artifact"),
+            links={"CONTEXT": self.context},
         )
+        print(triggered.pretty)
+        return triggered
 
     def _started(self, test_name):
         """Send a testcase started event.
@@ -224,9 +228,11 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
-        return self.etos.events.send_test_case_started(
+        started = self.etos.events.send_test_case_started(
             triggered, links={"CONTEXT": self.context}
         )
+        print(started.pretty)
+        return started
 
     def _finished(self, test_name, result):
         """Send a testcase finished event.
@@ -254,9 +260,11 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             }
         else:
             outcome = {"verdict": "PASSED", "conclusion": "SUCCESSFUL"}
-        return self.etos.events.send_test_case_finished(
+        finished = self.etos.events.send_test_case_finished(
             triggered, outcome, links={"CONTEXT": self.context}
         )
+        print(finished.pretty)
+        return finished
 
     def parse(self, line):
         """Parse test output in order to send test case events.
@@ -304,7 +312,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             " ".join(self.checkout_command),
             self._checkout_tests,
             self.checkout_command,
-            workspace.workspace
+            workspace.workspace,
         ) as test_directory:
             self.report_path = test_directory.joinpath(f"logs/{self.report_path}")
             self.logger.info("Report path: %r", self.report_path)

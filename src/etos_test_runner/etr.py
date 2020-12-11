@@ -90,6 +90,7 @@ class ETR:
             break
         self.etos.config.set("test_config", json_config)
         self.etos.config.set("context", json_config.get("context"))
+        self.etos.config.set("artifact", json_config.get("artifact"))
 
     def _run_tests(self):
         """Run tests in ETOS test runner.
