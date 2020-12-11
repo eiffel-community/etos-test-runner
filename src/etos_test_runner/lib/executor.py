@@ -91,7 +91,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         The regex file is used to determine when a test case has triggered,
         started, passed, failed, been skipped, raise error and the test name.
         """
-        if os.getenv("self.test_regex"):
+        if os.getenv("TEST_REGEX"):
             try:
                 path = Path(os.getenv("TEST_REGEX"))
                 if path.exists() and path.is_file():
