@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -41,7 +41,9 @@ class Workspace:
         self.identifiers = {}
 
         self.global_logs = self.top_dir.joinpath("logs")
+        self.global_artifacts = self.top_dir.joinpath("artifacts")
         environ["GLOBAL_LOGS"] = str(self.global_logs)
+        environ["GLOBAL_ARTIFACTS"] = str(self.global_artifacts)
 
     def __enter__(self, path=None):
         """Create and chdir to a workspace."""
@@ -51,6 +53,7 @@ class Workspace:
         )
         self.workspace.mkdir(exist_ok=True)
         self.global_logs.mkdir(exist_ok=True)
+        self.global_artifacts.mkdir(exist_ok=True)
         self.logger.info(
             "Changing directory to workspace %r",
             self.workspace.relative_to(self.top_dir),
@@ -64,6 +67,7 @@ class Workspace:
         chdir(self.top_dir)
         self.compress()
         self.log_area.upload_logs(self.log_area.collect(self.global_logs))
+        self.log_area.upload_artifacts(self.log_area.collect(self.global_artifacts))
         self.log_area.upload_artifacts(
             [
                 {

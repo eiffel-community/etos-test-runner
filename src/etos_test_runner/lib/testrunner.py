@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -113,24 +113,25 @@ class TestRunner:
                 host={"name": os.getenv("HOSTNAME"), "user": "etos"},
             )
 
-    def run_tests(self):
+    def run_tests(self, workspace):
         """Execute test recipes within a test executor.
 
+        :param workspace: Which workspace to execute test suite within.
+        :type workspace: :obj:`etr.lib.workspace.Workspace`
         :return: Result of test execution.
         :rtype: bool
         """
         recipes = self.config.get("recipes")
         result = True
-        with Workspace(self.log_area) as workspace:
-            for num, test in enumerate(recipes):
-                self.logger.info("Executing test %s/%s", num + 1, len(recipes))
-                with Executor(test, self.iut, self.etos) as executor:
-                    self.logger.info("Starting test '%s'", executor.test_name)
-                    executor.execute(workspace)
+        for num, test in enumerate(recipes):
+            self.logger.info("Executing test %s/%s", num + 1, len(recipes))
+            with Executor(test, self.iut, self.etos) as executor:
+                self.logger.info("Starting test '%s'", executor.test_name)
+                executor.execute(workspace)
 
-                    if not executor.result:
-                        result = executor.result
-                    self.logger.info("Test finished. Result: %s.", executor.result)
+                if not executor.result:
+                    result = executor.result
+                self.logger.info("Test finished. Result: %s.", executor.result)
         return result
 
     def outcome(self, result, executed, description):
@@ -197,36 +198,37 @@ class TestRunner:
         self.etos.config.set("main_suite_id", main_suite_id)
         self.etos.config.set("sub_suite_id", sub_suite_id)
 
-        self.logger.info("Start IUT monitoring.")
-        self.iut_monitoring.start_monitoring()
 
         result = True
         description = None
-        try:
-            self.logger.info("Starting test executor.")
-            result = self.run_tests()
-            executed = True
-        except Exception as exception:  # pylint:disable=broad-except
-            result = False
-            executed = False
-            description = str(exception)
-            raise
-        finally:
-            self.logger.info("Stop IUT monitoring.")
-            self.iut_monitoring.stop_monitoring()
+        with Workspace(self.log_area) as workspace:
+            self.logger.info("Start IUT monitoring.")
+            self.iut_monitoring.start_monitoring()
+            try:
+                self.logger.info("Starting test executor.")
+                result = self.run_tests(workspace)
+                executed = True
+            except Exception as exception:  # pylint:disable=broad-except
+                result = False
+                executed = False
+                description = str(exception)
+                raise
+            finally:
+                self.logger.info("Stop IUT monitoring.")
+                self.iut_monitoring.stop_monitoring()
 
-            self.logger.info("Figure out test outcome.")
-            outcome = self.outcome(result, executed, description)
-            pprint(outcome)
+                self.logger.info("Figure out test outcome.")
+                outcome = self.outcome(result, executed, description)
+                pprint(outcome)
 
-            self.logger.info("Send test suite finished and confidence events.")
-            self.etos.events.send_test_suite_finished(
-                test_suite_started,
-                links={"CONTEXT": self.etos.config.get("context")},
-                outcome=outcome,
-                persistentLogs=self.log_area.persistent_logs,
-            )
-            self.confidence_level(result, test_suite_started)
+                self.logger.info("Send test suite finished and confidence events.")
+                self.etos.events.send_test_suite_finished(
+                    test_suite_started,
+                    links={"CONTEXT": self.etos.config.get("context")},
+                    outcome=outcome,
+                    persistentLogs=self.log_area.persistent_logs,
+                )
+                self.confidence_level(result, test_suite_started)
         timeout = time.time() + 30
         self.logger.info("Waiting for eiffel publisher to deliver events (30s).")
         # pylint:disable=len-as-condition, protected-access

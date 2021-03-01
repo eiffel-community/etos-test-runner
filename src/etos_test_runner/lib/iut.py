@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,9 +16,11 @@
 """IUT data structure module."""
 import os
 import logging
+from pathlib import Path
 from collections import OrderedDict
 from packageurl import PackageURL
 from jsontas.jsontas import JsonTas
+from etos_lib.lib.config import Config
 
 
 class Iut:  # pylint: disable=too-few-public-methods
@@ -34,7 +36,12 @@ class Iut:  # pylint: disable=too-few-public-methods
         :type product: dict
         """
         self.test_runner = {}
-        self.steps = {"environment": self.load_environment}
+        self.config = Config()
+        self.config.set("scripts", [])
+        self.steps = {
+            "environment": self.load_environment,
+            "commands": self.commands
+        }
 
         product["identity"] = PackageURL.from_string(product["identity"])
         for key, value in product.items():
@@ -55,9 +62,16 @@ class Iut:  # pylint: disable=too-few-public-methods
                 )
                 continue
             self.logger.info("Executing step %r", step)
-            definition = OrderedDict(**definition)
-            step_result = self.jsontas.run(json_data=definition)
-            step_method(step_result)
+            self.logger.info("Definition: %r", definition)
+            if isinstance(definition, list):
+                for sub_definition in definition:
+                    sub_definition = OrderedDict(**sub_definition)
+                    step_result = self.jsontas.run(json_data=sub_definition)
+                    step_method(step_result)
+            else:
+                definition = OrderedDict(**definition)
+                step_result = self.jsontas.run(json_data=definition)
+                step_method(step_result)
 
     @staticmethod
     def load_environment(environment):
@@ -68,6 +82,19 @@ class Iut:  # pylint: disable=too-few-public-methods
         """
         for key, value in environment.items():
             os.environ[key] = value
+
+    def commands(self, command):
+        """Create scripts from commands and add them to IUT monitoring.
+
+        :param command: A command dictionary to prepare.
+        :type command: dict
+        """
+        script_name = str(Path.cwd().joinpath(command.get("name")))
+        parameters = command.get("parameters", [])
+        with open(script_name, "w") as script:
+            for line in command.get("script"):
+                script.write("{}\n".format(line))
+        self.config.get("scripts").append({"name": script_name, "parameters": parameters})
 
     @property
     def as_dict(self):
