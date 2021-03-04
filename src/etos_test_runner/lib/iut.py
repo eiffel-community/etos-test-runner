@@ -38,10 +38,7 @@ class Iut:  # pylint: disable=too-few-public-methods
         self.test_runner = {}
         self.config = Config()
         self.config.set("scripts", [])
-        self.steps = {
-            "environment": self.load_environment,
-            "commands": self.commands
-        }
+        self.steps = {"environment": self.load_environment, "commands": self.commands}
 
         product["identity"] = PackageURL.from_string(product["identity"])
         for key, value in product.items():
@@ -94,7 +91,9 @@ class Iut:  # pylint: disable=too-few-public-methods
         with open(script_name, "w") as script:
             for line in command.get("script"):
                 script.write("{}\n".format(line))
-        self.config.get("scripts").append({"name": script_name, "parameters": parameters})
+        self.config.get("scripts").append(
+            {"name": script_name, "parameters": parameters}
+        )
 
     @property
     def as_dict(self):

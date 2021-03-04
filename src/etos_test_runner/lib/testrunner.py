@@ -198,7 +198,6 @@ class TestRunner:
         self.etos.config.set("main_suite_id", main_suite_id)
         self.etos.config.set("sub_suite_id", sub_suite_id)
 
-
         result = True
         description = None
         with Workspace(self.log_area) as workspace:

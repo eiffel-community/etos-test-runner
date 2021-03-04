@@ -24,7 +24,7 @@ from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 from etos_lib.lib.config import Config
 
 
-ON_POSIX = 'posix' in sys.builtin_module_names
+ON_POSIX = "posix" in sys.builtin_module_names
 
 
 class IutMonitoring:
@@ -49,7 +49,7 @@ class IutMonitoring:
         :type output: filedescriptor
         """
         self.logger.info("Reading output from %r", output)
-        for line in iter(output.readline, b''):
+        for line in iter(output.readline, b""):
             self.logger.info(line.decode("utf-8"))
         output.close()
 
@@ -57,17 +57,26 @@ class IutMonitoring:
         """Start monitoring IUT."""
         scripts = self.config.get("scripts") or []
         for script in scripts:
-            self.logger.info("Starting script %r with parameters %r.", script.get("name"),
-                             script.get("parameters"))
+            self.logger.info(
+                "Starting script %r with parameters %r.",
+                script.get("name"),
+                script.get("parameters"),
+            )
 
             # Make file executable.
             filestat = os.stat(script.get("name"))
             os.chmod(script.get("name"), filestat.st_mode | stat.S_IEXEC)
 
-            process = Popen([script.get("name"), *script.get("parameters")],
-                            stdout=PIPE, stderr=STDOUT, close_fds=ON_POSIX)
+            process = Popen(
+                [script.get("name"), *script.get("parameters")],
+                stdout=PIPE,
+                stderr=STDOUT,
+                close_fds=ON_POSIX,
+            )
             self.processes.append(process)
-            Thread(target=self._read_from_process, daemon=True, args=(process.stdout,)).start()
+            Thread(
+                target=self._read_from_process, daemon=True, args=(process.stdout,)
+            ).start()
 
     def stop_monitoring(self):
         """Stop monitoring IUT."""
@@ -75,18 +84,25 @@ class IutMonitoring:
             self.logger.info("Interrupting process: %r (60s timeout)", process)
             process.send_signal(SIGINT)
             try:
-                process.communicate(timeout=60)
-            except TimeoutExpired:
-                self.logger.error("Unable to stop with SIGINT, terminating with SIGTERM")
-                process.terminate()
                 try:
-                    process.communicate(timeout=30)
+                    process.communicate(timeout=60)
                 except TimeoutExpired:
-                    self.logger.error("Unable to stop with SIGTERM, killing with SIGKILL.")
-                    process.kill()
+                    self.logger.error(
+                        "Unable to stop with SIGINT, terminating with SIGTERM"
+                    )
+                    process.terminate()
                     try:
                         process.communicate(timeout=30)
                     except TimeoutExpired:
                         self.logger.error(
-                            "Still unable to kill it. Return and have python clean up."
+                            "Unable to stop with SIGTERM, killing with SIGKILL."
                         )
+                        process.kill()
+                        try:
+                            process.communicate(timeout=30)
+                        except TimeoutExpired:
+                            self.logger.error(
+                                "Still unable to kill it. Return and have python clean up."
+                            )
+            except OSError as exception:
+                self.logger.error("OS Error %r. Exiting.", exception)
