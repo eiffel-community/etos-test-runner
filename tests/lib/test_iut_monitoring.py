@@ -34,7 +34,7 @@ class TestIutMonitoring(TestCase):
 
     def setUp(self):
         """Create a script file."""
-        script = ["#!/bin/bash", "cat > $(pwd)/output << EOF", "Hello $1", "EOF"]
+        script = ["#!/bin/bash", "echo Hello $1 > $(pwd)/output"]
         with open(self.script, "w") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
@@ -87,6 +87,9 @@ class TestIutMonitoring(TestCase):
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
         iut_monitoring = IutMonitoring(None)
+        iut_monitoring.interrupt_timeout = 5
+        iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Load script to the config.")
         self.config.set(
@@ -117,9 +120,12 @@ class TestIutMonitoring(TestCase):
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
         iut_monitoring = IutMonitoring(None)
+        iut_monitoring.interrupt_timeout = 5
+        iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Load the scripts to the config.")
-        script = ["#!/bin/bash", "cat > $(pwd)/output2 << EOF", "Goodbye $1", "EOF"]
+        script = ["#!/bin/bash", "echo Goodbye $1 > $(pwd)/output2"]
         second_script = Path.cwd().joinpath("second.sh")
         self.files.append(second_script)
         self.files.append(Path.cwd().joinpath("output2"))
@@ -164,14 +170,15 @@ class TestIutMonitoring(TestCase):
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
         iut_monitoring = IutMonitoring(None)
+        iut_monitoring.interrupt_timeout = 5
+        iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Create and add a script with an infinite loop.")
         script = [
             "#!/bin/bash",
             "int_handler() {",
-            "   cat > $(pwd)/output << EOF",
-            "interrupted!",
-            "EOF",
+            "   echo interrupted! > $(pwd)/output",
             "   exit 0",
             "}",
             "trap int_handler INT",
@@ -221,14 +228,15 @@ class TestIutMonitoring(TestCase):
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
         iut_monitoring = IutMonitoring(None)
+        iut_monitoring.interrupt_timeout = 5
+        iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Create and add multiple scripts with an infinite loop.")
         script = [
             "#!/bin/bash",
             "int_handler() {",
-            "   cat > $(pwd)/output << EOF",
-            "interrupted!",
-            "EOF",
+            "   echo interrupted! > $(pwd)/output",
             "   exit 0",
             "}",
             "trap int_handler INT",
@@ -246,9 +254,7 @@ class TestIutMonitoring(TestCase):
         script = [
             "#!/bin/bash",
             "int_handler() {",
-            "   cat > $(pwd)/output2 << EOF",
-            "interrupted!",
-            "EOF",
+            "   echo interrupted! > $(pwd)/output2",
             "   exit 0",
             "}",
             "trap int_handler INT",
@@ -305,6 +311,7 @@ class TestIutMonitoring(TestCase):
         iut_monitoring = IutMonitoring(None)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Create and add a script catching SIGINT.")
         script = [
@@ -369,6 +376,7 @@ class TestIutMonitoring(TestCase):
         iut_monitoring = IutMonitoring(None)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
+        iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Create and add a script catching SIGINT and SIGTERM.")
         script = [
