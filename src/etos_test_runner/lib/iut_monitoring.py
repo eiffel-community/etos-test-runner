@@ -31,6 +31,9 @@ class IutMonitoring:
     """Helper class for monitoring IuT health statistics."""
 
     logger = logging.getLogger("IUT Monitoring")
+    interrupt_timeout = 60  # Seconds
+    terminate_timeout = 30  # Seconds
+    kill_timeout = 30  # Seconds
 
     def __init__(self, iut):
         """Initialize monitoring.
@@ -68,7 +71,7 @@ class IutMonitoring:
             os.chmod(script.get("name"), filestat.st_mode | stat.S_IEXEC)
 
             process = Popen(
-                [script.get("name"), *script.get("parameters")],
+                [script.get("name"), *script.get("parameters", [])],
                 stdout=PIPE,
                 stderr=STDOUT,
                 close_fds=ON_POSIX,
@@ -81,25 +84,31 @@ class IutMonitoring:
     def stop_monitoring(self):
         """Stop monitoring IUT."""
         for process in self.processes:
-            self.logger.info("Interrupting process: %r (60s timeout)", process)
+            self.logger.info(
+                "Interrupting process: %r (%rs timeout)",
+                self.interrupt_timeout,
+                process,
+            )
             process.send_signal(SIGINT)
             try:
                 try:
-                    process.communicate(timeout=60)
+                    process.communicate(timeout=self.interrupt_timeout)
                 except TimeoutExpired:
                     self.logger.error(
-                        "Unable to stop with SIGINT, terminating with SIGTERM"
+                        "Unable to stop with SIGINT, terminating with SIGTERM (%rs timeout)",
+                        self.terminate_timeout,
                     )
                     process.terminate()
                     try:
-                        process.communicate(timeout=30)
+                        process.communicate(timeout=self.terminate_timeout)
                     except TimeoutExpired:
                         self.logger.error(
-                            "Unable to stop with SIGTERM, killing with SIGKILL."
+                            "Unable to stop with SIGTERM, killing with SIGKILL (%rs timeout).",
+                            self.kill_timeout,
                         )
                         process.kill()
                         try:
-                            process.communicate(timeout=30)
+                            process.communicate(timeout=self.kill_timeout)
                         except TimeoutExpired:
                             self.logger.error(
                                 "Still unable to kill it. Return and have python clean up."

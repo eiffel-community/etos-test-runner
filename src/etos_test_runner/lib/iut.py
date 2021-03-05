@@ -90,7 +90,7 @@ class Iut:  # pylint: disable=too-few-public-methods
         parameters = command.get("parameters", [])
         with open(script_name, "w") as script:
             for line in command.get("script"):
-                script.write("{}\n".format(line))
+                script.write(f"{line}\n")
         self.config.get("scripts").append(
             {"name": script_name, "parameters": parameters}
         )
