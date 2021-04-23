@@ -230,10 +230,25 @@ class TestRunner:
             self.confidence_level(result, test_suite_started)
         timeout = time.time() + 30
         self.logger.info("Waiting for eiffel publisher to deliver events (30s).")
-        # pylint:disable=len-as-condition, protected-access
-        while len(self.etos.publisher._deliveries):
+
+        previous = 0
+        # pylint:disable=protected-access
+        current = len(self.etos.publisher._deliveries)
+        while current:
+            current = len(self.etos.publisher._deliveries)
+            self.logger.info("Remaining events to send        : %d", current)
+            self.logger.info("Events sent since last iteration: %d", previous - current)
             if time.time() > timeout:
-                raise Exception("Eiffel publisher did not deliver all eiffel events.")
+                if current < previous:
+                    self.logger.info(
+                        "Timeout reached, but events are still being sent. Increase timeout by 10s."
+                    )
+                    timeout = time.time() + 10
+                else:
+                    raise Exception(
+                        "Eiffel publisher did not deliver all eiffel events."
+                    )
+            previous = current
             time.sleep(1)
         self.logger.info("Tests finished executing.")
         return 0 if result else outcome
