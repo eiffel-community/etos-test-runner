@@ -34,6 +34,7 @@ class IutMonitoring:
     interrupt_timeout = 60  # Seconds
     terminate_timeout = 30  # Seconds
     kill_timeout = 30  # Seconds
+    monitoring = False
 
     def __init__(self, iut):
         """Initialize monitoring.
@@ -58,6 +59,9 @@ class IutMonitoring:
 
     def start_monitoring(self):
         """Start monitoring IUT."""
+        if self.monitoring is True:
+            self.logger.info("Monitoring is already started.")
+            return
         scripts = self.config.get("scripts") or []
         for script in scripts:
             self.logger.info(
@@ -80,9 +84,14 @@ class IutMonitoring:
             Thread(
                 target=self._read_from_process, daemon=True, args=(process.stdout,)
             ).start()
+        self.monitoring = True
 
     def stop_monitoring(self):
         """Stop monitoring IUT."""
+        if self.monitoring is False:
+            self.logger.info("Monitoring is already stopped.")
+            return
+        self.monitoring = False
         for process in self.processes:
             self.logger.info(
                 "Interrupting process: %r (%rs timeout)",

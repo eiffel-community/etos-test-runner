@@ -207,15 +207,17 @@ class TestRunner:
                 self.logger.info("Starting test executor.")
                 result = self.run_tests(workspace)
                 executed = True
+                self.logger.info("Stop IUT monitoring.")
+                self.iut_monitoring.stop_monitoring()
         except Exception as exception:  # pylint:disable=broad-except
             result = False
             executed = False
             description = str(exception)
             raise
         finally:
-            self.logger.info("Stop IUT monitoring.")
-            self.iut_monitoring.stop_monitoring()
-
+            if self.iut_monitoring.monitoring:
+                self.logger.info("Stop IUT monitoring.")
+                self.iut_monitoring.stop_monitoring()
             self.logger.info("Figure out test outcome.")
             outcome = self.outcome(result, executed, description)
             pprint(outcome)
