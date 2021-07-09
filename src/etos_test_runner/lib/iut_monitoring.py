@@ -74,6 +74,7 @@ class IutMonitoring:
             filestat = os.stat(script.get("name"))
             os.chmod(script.get("name"), filestat.st_mode | stat.S_IEXEC)
 
+            # These processes are closed elsewhere. pylint:disable=consider-using-with
             process = Popen(
                 [script.get("name"), *script.get("parameters", [])],
                 stdout=PIPE,

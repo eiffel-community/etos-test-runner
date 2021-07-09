@@ -112,6 +112,12 @@ class TestRunner:
                 links={"CONTEXT": context},
                 host={"name": os.getenv("HOSTNAME"), "user": "etos"},
             )
+        if os.getenv("EXECUTION_SPACE_URL") is not None:
+            self.etos.events.send_environment_defined(
+                "Execution Space URL",
+                links={"CONTEXT": context},
+                host={"name": os.getenv("EXECUTION_SPACE_URL"), "user": "etos"},
+            )
 
     def run_tests(self, workspace):
         """Execute test recipes within a test executor.
@@ -183,7 +189,7 @@ class TestRunner:
             "conclusion": conclusion,
         }
 
-    def execute(self):  # pylint:disable=too-many-branches
+    def execute(self):  # pylint:disable=too-many-branches,disable=too-many-statements
         """Execute all tests in test suite.
 
         :return: Result of execution. Linux exit code.
