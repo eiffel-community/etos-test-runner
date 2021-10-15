@@ -88,7 +88,7 @@ class TestRunner:
         :type test_suite_started: :obj:`eiffellib.events.EiffelTestSuiteStartedEvent`
         """
         self.logger.warning("DEPRECATED: Please note that confidence levels are deprecated in ETOS.\n"
-                            "Use feature flag DISABLE_CLM to disable this deprecated feature.")
+                            "Set feature flag CLM to false in order to disable this deprecated feature.")
         confidence = self.etos.events.send_confidence_level_modified(
             "{}_OK".format(self.config.get("name")),
             "SUCCESS" if test_results else "FAILURE",
@@ -237,7 +237,7 @@ class TestRunner:
                 outcome=outcome,
                 persistentLogs=self.log_area.persistent_logs,
             )
-            if not self.etos.feature_flags.disable_clm:
+            if self.etos.feature_flags.clm:
                 self.logger.info("Send confidence event.")
                 self.confidence_level(result, test_suite_started)
         timeout = time.time() + 30
