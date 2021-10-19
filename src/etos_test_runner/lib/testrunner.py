@@ -87,10 +87,12 @@ class TestRunner:
         :param test_suite_started: Test suite started event to use as Cause for this confidence.
         :type test_suite_started: :obj:`eiffellib.events.EiffelTestSuiteStartedEvent`
         """
-        self.logger.warning("DEPRECATED: Please note that confidence levels are deprecated in ETOS.\n"
-                            "Set feature flag CLM to false in order to disable this deprecated feature.")
+        self.logger.warning(
+            "DEPRECATED: Please note that confidence levels are deprecated in ETOS.\n"
+            "Set feature flag CLM to false in order to disable this deprecated feature."
+        )
         confidence = self.etos.events.send_confidence_level_modified(
-            "{}_OK".format(self.config.get("name")),
+            f"{self.config.get('name')}_OK",
             "SUCCESS" if test_results else "FAILURE",
             links={
                 "CONTEXT": self.etos.config.get("context"),
@@ -158,8 +160,7 @@ class TestRunner:
             conclusion = "SUCCESSFUL"
             verdict = "PASSED" if result else "FAILED"
             self.logger.info(
-                "Tests executed successfully. "
-                "Verdict set to '%s' due to result being '%s'",
+                "Tests executed successfully. Verdict set to '%s' due to result being '%s'",
                 verdict,
                 result,
             )
@@ -167,22 +168,19 @@ class TestRunner:
             conclusion = "FAILED"
             verdict = "INCONCLUSIVE"
             self.logger.info(
-                "Tests did not execute successfully. " "Setting verdict to '%s'",
+                "Tests did not execute successfully. Setting verdict to '%s'",
                 verdict,
             )
 
         suite_name = self.config.get("name")
         if not description and not result:
-            self.logger.info(
-                "No description but result is a failure. " "At least some tests failed."
-            )
-            description = "At least some {} tests failed.".format(suite_name)
+            self.logger.info("No description but result is a failure. At least some tests failed.")
+            description = f"At least some {suite_name} tests failed."
         elif not description and result:
             self.logger.info(
-                "No description and result is a success. "
-                "All tests executed successfully."
+                "No description and result is a success. " "All tests executed successfully."
             )
-            description = "All {} tests completed successfully.".format(suite_name)
+            description = f"All {suite_name} tests completed successfully."
         else:
             self.logger.info("Description was set. Probably due to an exception.")
         return {
@@ -257,9 +255,7 @@ class TestRunner:
                     )
                     timeout = time.time() + 10
                 else:
-                    raise Exception(
-                        "Eiffel publisher did not deliver all eiffel events."
-                    )
+                    raise Exception("Eiffel publisher did not deliver all eiffel events.")
             previous = current
             time.sleep(1)
         self.logger.info("Tests finished executing.")

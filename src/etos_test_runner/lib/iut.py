@@ -54,9 +54,7 @@ class Iut:  # pylint: disable=too-few-public-methods
         for step, definition in self.test_runner.get("steps", {}).items():
             step_method = self.steps.get(step)
             if step_method is None:
-                self.logger.error(
-                    "Step %r does not exist. Available %r", step, self.steps
-                )
+                self.logger.error("Step %r does not exist. Available %r", step, self.steps)
                 continue
             self.logger.info("Executing step %r", step)
             self.logger.info("Definition: %r", definition)
@@ -88,12 +86,10 @@ class Iut:  # pylint: disable=too-few-public-methods
         """
         script_name = str(Path.cwd().joinpath(command.get("name")))
         parameters = command.get("parameters", [])
-        with open(script_name, "w") as script:
+        with open(script_name, "w", encoding="utf-8") as script:
             for line in command.get("script"):
                 script.write(f"{line}\n")
-        self.config.get("scripts").append(
-            {"name": script_name, "parameters": parameters}
-        )
+        self.config.get("scripts").append({"name": script_name, "parameters": parameters})
 
     @property
     def as_dict(self):

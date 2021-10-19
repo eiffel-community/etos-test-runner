@@ -35,7 +35,7 @@ class TestIutMonitoring(TestCase):
     def setUp(self):
         """Create a script file."""
         script = ["#!/bin/bash", "echo Hello $1 > $(pwd)/output"]
-        with open(self.script, "w") as scriptfile:
+        with open(self.script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config = Config()
@@ -92,16 +92,14 @@ class TestIutMonitoring(TestCase):
         iut_monitoring.kill_timeout = 5
 
         self.logger.info("STEP: Load script to the config.")
-        self.config.set(
-            "scripts", [{"name": str(self.script), "parameters": ["world"]}]
-        )
+        self.config.set("scripts", [{"name": str(self.script), "parameters": ["world"]}])
 
         self.logger.info("STEP: Start monitoring.")
         iut_monitoring.start_monitoring()
 
         self.logger.info("STEP: Verify that the script executed.")
         self._wait_for_file(Path.cwd().joinpath("output"))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             hello_world = output.read().strip()
             self.logger.info(hello_world)
         self.assertEqual(hello_world, "Hello world")
@@ -129,7 +127,7 @@ class TestIutMonitoring(TestCase):
         second_script = Path.cwd().joinpath("second.sh")
         self.files.append(second_script)
         self.files.append(Path.cwd().joinpath("output2"))
-        with open(second_script, "w") as scriptfile:
+        with open(second_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config.set(
@@ -145,11 +143,11 @@ class TestIutMonitoring(TestCase):
 
         self.logger.info("STEP: Verify that the scripts executed.")
         self._wait_for_file(Path.cwd().joinpath("output"))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             hello_world = output.read().strip()
             self.logger.info(hello_world)
         self._wait_for_file(Path.cwd().joinpath("output2"))
-        with open(Path.cwd().joinpath("output2")) as output:
+        with open(Path.cwd().joinpath("output2"), encoding="utf-8") as output:
             goodbye_world = output.read().strip()
             self.logger.info(goodbye_world)
         self.assertEqual(hello_world, "Hello world")
@@ -190,7 +188,7 @@ class TestIutMonitoring(TestCase):
         interrupt_script = Path.cwd().joinpath("interrupt.sh")
         self.files.append(interrupt_script)
         self.files.append(Path.cwd().joinpath("output"))
-        with open(interrupt_script, "w") as scriptfile:
+        with open(interrupt_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config.set(
@@ -209,7 +207,7 @@ class TestIutMonitoring(TestCase):
 
         self.logger.info("STEP: Verify that the script was interrupted with SIGINT.")
         self.assertTrue(self._wait_for_file(Path.cwd().joinpath("output")))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             text = output.read().strip()
         self.assertEqual(text, "interrupted!")
 
@@ -248,7 +246,7 @@ class TestIutMonitoring(TestCase):
         first_interrupt_script = Path.cwd().joinpath("first_interrupt.sh")
         self.files.append(first_interrupt_script)
         self.files.append(Path.cwd().joinpath("output"))
-        with open(first_interrupt_script, "w") as scriptfile:
+        with open(first_interrupt_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         script = [
@@ -266,7 +264,7 @@ class TestIutMonitoring(TestCase):
         second_interrupt_script = Path.cwd().joinpath("second_interrupt.sh")
         self.files.append(second_interrupt_script)
         self.files.append(Path.cwd().joinpath("output2"))
-        with open(second_interrupt_script, "w") as scriptfile:
+        with open(second_interrupt_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config.set(
@@ -287,10 +285,10 @@ class TestIutMonitoring(TestCase):
         self.logger.info("STEP: Verify that the scripts were interrupted with SIGINT.")
         self.assertTrue(self._wait_for_file(Path.cwd().joinpath("output")))
         self.assertTrue(self._wait_for_file(Path.cwd().joinpath("output2")))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             text = output.read().strip()
         self.assertEqual(text, "interrupted!")
-        with open(Path.cwd().joinpath("output2")) as output:
+        with open(Path.cwd().joinpath("output2"), encoding="utf-8") as output:
             text = output.read().strip()
         self.assertEqual(text, "interrupted!")
 
@@ -333,7 +331,7 @@ class TestIutMonitoring(TestCase):
         interrupt_script = Path.cwd().joinpath("terminate.sh")
         self.files.append(interrupt_script)
         self.files.append(Path.cwd().joinpath("output"))
-        with open(interrupt_script, "w") as scriptfile:
+        with open(interrupt_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config.set(
@@ -352,7 +350,7 @@ class TestIutMonitoring(TestCase):
 
         self.logger.info("STEP: Verify that the script was interrupted with SIGINT.")
         self.assertTrue(self._wait_for_file(Path.cwd().joinpath("output")))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             lines = output.readlines()
         interrupt = lines.pop(0).strip()
         self.assertEqual(interrupt, "interrupted!")
@@ -397,7 +395,7 @@ class TestIutMonitoring(TestCase):
         interrupt_script = Path.cwd().joinpath("kill.sh")
         self.files.append(interrupt_script)
         self.files.append(Path.cwd().joinpath("output"))
-        with open(interrupt_script, "w") as scriptfile:
+        with open(interrupt_script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
         self.config.set(
@@ -410,17 +408,15 @@ class TestIutMonitoring(TestCase):
         self.logger.info("STEP: Start monitoring.")
         iut_monitoring.start_monitoring()
         time.sleep(1)
-        process = iut_monitoring.processes[0]
 
         self.logger.info("STEP: Stop monitoring.")
         iut_monitoring.stop_monitoring()
 
         self.logger.info("STEP: Verify that the script was killed.")
         self.assertTrue(self._wait_for_file(Path.cwd().joinpath("output")))
-        with open(Path.cwd().joinpath("output")) as output:
+        with open(Path.cwd().joinpath("output"), encoding="utf-8") as output:
             lines = output.readlines()
         interrupt = lines.pop(0).strip()
         self.assertEqual(interrupt, "interrupted!")
         terminate = lines.pop(0).strip()
         self.assertEqual(terminate, "terminated!")
-        self.assertEqual(process.returncode, -9)

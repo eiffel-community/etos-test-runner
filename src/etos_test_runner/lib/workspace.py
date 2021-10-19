@@ -86,7 +86,7 @@ class Workspace:
         if report.exists():
             full_execution = self.global_logs.joinpath("full_execution.log")
             full_execution.touch()
-            with full_execution.open(mode="a") as full_execution_log:
+            with full_execution.open(mode="a", encoding="utf-8") as full_execution_log:
                 full_execution_log.write(report.read_text())
 
     @contextmanager
@@ -161,9 +161,7 @@ class Workspace:
             with self.collect_logs(self.identifiers.get(identifier)):
                 yield self.identifiers.get(identifier)
         finally:
-            self.logger.info(
-                "Returning to %r", self.workspace.relative_to(self.top_dir)
-            )
+            self.logger.info("Returning to %r", self.workspace.relative_to(self.top_dir))
             chdir(self.workspace)
 
     def compress(self):
@@ -171,9 +169,7 @@ class Workspace:
         if self.workspace is None or not self.workspace.is_dir():
             raise Exception("Workspace not created.")
         self.logger.info("Compress workspace directory")
-        compressed_workspace = self.top_dir.joinpath("workspace").relative_to(
-            Path.cwd()
-        )
+        compressed_workspace = self.top_dir.joinpath("workspace").relative_to(Path.cwd())
         filename = make_archive(
             compressed_workspace,
             format="gztar",

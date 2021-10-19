@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -54,7 +54,7 @@ def parse_args(args):
         "-v",
         "--version",
         action="version",
-        version="etos_test_runner {ver}".format(ver=__version__),
+        version=f"etos_test_runner {__version__}",
     )
     return parser.parse_args(args)
 

@@ -61,8 +61,7 @@ class TestWorkspace(TestCase):
         self.workspace = Workspace(Mock())
 
         self.logger.info(
-            "STEP: Verify that the workspace library did not create a workspace "
-            "directory."
+            "STEP: Verify that the workspace library did not create a workspace " "directory."
         )
         self.assertFalse(Path.cwd().joinpath("workspace").exists())
 
@@ -83,22 +82,16 @@ class TestWorkspace(TestCase):
         with Workspace(Mock()) as workspace:
             self.workspace = workspace
             self.logger.info(
-                "STEP: Verify that the workspace library created the main "
-                "workspace directory."
+                "STEP: Verify that the workspace library created the main " "workspace directory."
             )
-            self.assertTrue(
-                workspace.workspace.exists() and workspace.workspace.is_dir()
-            )
+            self.assertTrue(workspace.workspace.exists() and workspace.workspace.is_dir())
 
             self.logger.info("STEP: Exit the context.")
         self.logger.info(
-            "STEP: Verify that the workspace library compressed the main "
-            "workspace directory."
+            "STEP: Verify that the workspace library compressed the main " "workspace directory."
         )
         compressed_workspace = Path.cwd().joinpath("workspace.tar.gz")
-        self.assertTrue(
-            compressed_workspace.exists() and compressed_workspace.is_file()
-        )
+        self.assertTrue(compressed_workspace.exists() and compressed_workspace.is_file())
 
     def test_compress(self):
         """Test that the compression method compresses a folder and all its subdirectories.
@@ -127,9 +120,7 @@ class TestWorkspace(TestCase):
         self.logger.info("STEP: Compress the directory.")
         workspace.compress()
 
-        self.logger.info(
-            "STEP: Verify that the directory was compressed using the gztar format."
-        )
+        self.logger.info("STEP: Verify that the directory was compressed using the gztar format.")
         self.items.append(test_folder)
         compressed_workspace = Path.cwd().joinpath("workspace.tar.gz")
         unpack_archive(compressed_workspace, test_folder, format="gztar")
@@ -170,9 +161,7 @@ class TestWorkspace(TestCase):
 
             self.logger.info("STEP: Enter test directory in a context manager.")
             with workspace.test_directory("dir") as directory:
-                self.logger.info(
-                    "STEP: Verify that directory was created and changed to."
-                )
+                self.logger.info("STEP: Verify that directory was created and changed to.")
                 self.assertTrue(directory.exists() and directory.is_dir())
                 try:
                     self.assertEqual(Path.cwd().relative_to(directory), Path("."))
@@ -197,13 +186,11 @@ class TestWorkspace(TestCase):
             self.workspace = workspace
 
             self.logger.info(
-                "STEP: Enter a test directory in a context manager with identifier "
-                "'dir1'."
+                "STEP: Enter a test directory in a context manager with identifier " "'dir1'."
             )
             with workspace.test_directory("dir1") as directory:
                 self.logger.info(
-                    "STEP: Check that test directory was created and exit the "
-                    "context."
+                    "STEP: Check that test directory was created and exit the " "context."
                 )
                 if not directory.exists() and directory.is_dir():
                     raise Exception("Test directory was not properly created.")
@@ -211,8 +198,7 @@ class TestWorkspace(TestCase):
 
             with workspace.test_directory("dir1") as directory:
                 self.logger.info(
-                    "STEP: Enter a test directory in a context manager with the "
-                    "same identifer."
+                    "STEP: Enter a test directory in a context manager with the " "same identifer."
                 )
                 if not directory.exists() and directory.is_dir():
                     raise Exception("Test directory was not properly created.")
@@ -248,9 +234,7 @@ class TestWorkspace(TestCase):
         with Workspace(Mock()) as workspace:
             self.workspace = workspace
 
-            self.logger.info(
-                "STEP: Enter a test directory with a method call registered."
-            )
+            self.logger.info("STEP: Enter a test directory with a method call registered.")
             with workspace.test_directory("dir1", callee, calls):
                 self.logger.info("STEP: Verify that the method was called.")
                 self.assertEqual(len(calls), 1)

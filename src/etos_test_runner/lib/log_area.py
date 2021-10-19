@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -39,9 +39,7 @@ class LogArea:
         :type etos: :obj:`etos_lib.etos.Etos`
         """
         self.etos = etos
-        self.suite_name = (
-            self.etos.config.get("test_config").get("name").replace(" ", "-")
-        )
+        self.suite_name = self.etos.config.get("test_config").get("name").replace(" ", "-")
         self.log_area = self.etos.config.get("test_config").get("log_area")
         self.logs = []
         self.artifacts = []
@@ -74,9 +72,7 @@ class LogArea:
         """
         directory, filename = path.parent, path.name
         if test_name is not None:
-            self.logger.info(
-                "File collected as part of test case. Prepending %r", test_name
-            )
+            self.logger.info("File collected as part of test case. Prepending %r", test_name)
             filename = f"{test_name}_{filename}"
             self.logger.info("Result: %r", filename)
         if self.log_area.get("logs"):
@@ -133,8 +129,8 @@ class LogArea:
         :param logs: Logs to upload.
         :type logs: list
         """
-        log_area_folder = "{}/{}".format(
-            self.etos.config.get("main_suite_id"), self.etos.config.get("sub_suite_id")
+        log_area_folder = (
+            f"{self.etos.config.get('main_suite_id')}/{self.etos.config.get('sub_suite_id')}"
         )
         for log in logs:
             log["uri"] = self.__upload(
@@ -195,8 +191,8 @@ class LogArea:
         """
         if not artifacts:
             return
-        log_area_folder = "{}/{}".format(
-            self.etos.config.get("main_suite_id"), self.etos.config.get("sub_suite_id")
+        log_area_folder = (
+            f"{self.etos.config.get('main_suite_id')}/{self.etos.config.get('sub_suite_id')}"
         )
         self.logger.info("Uploading artifacts %r to log area", artifacts)
         artifact_created = self._artifact_created(artifacts)
@@ -288,9 +284,7 @@ class LogArea:
         if timeout is None:
             timeout = self.etos.debug.default_http_timeout
         end_time = time.time() + timeout
-        self.logger.debug(
-            "Retrying URL %s for %d seconds with a %s request.", url, timeout, verb
-        )
+        self.logger.debug("Retrying URL %s for %d seconds with a %s request.", url, timeout, verb)
         iteration = 0
         while time.time() < end_time:
             iteration += 1
@@ -299,9 +293,7 @@ class LogArea:
                 # Seek back to the start of the file so that the uploaded file
                 # is not 0 bytes in size.
                 log_file.seek(0)
-                yield self.etos.http.request(
-                    verb, url, as_json, data=log_file, **requests_kwargs
-                )
+                yield self.etos.http.request(verb, url, as_json, data=log_file, **requests_kwargs)
                 break
             except (
                 ConnectionError,
@@ -314,9 +306,7 @@ class LogArea:
                 self.logger.warning("%r", traceback.format_exc())
                 time.sleep(2)
         else:
-            raise ConnectionError(
-                "Unable to {} {} with params {}".format(verb, url, requests_kwargs)
-            )
+            raise ConnectionError(f"Unable to {verb} {url} with params {requests_kwargs}")
 
     @staticmethod
     def __auth(username, password, type="basic"):  # pylint:disable=redefined-builtin

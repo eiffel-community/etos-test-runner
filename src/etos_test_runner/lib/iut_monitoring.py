@@ -82,9 +82,7 @@ class IutMonitoring:
                 close_fds=ON_POSIX,
             )
             self.processes.append(process)
-            Thread(
-                target=self._read_from_process, daemon=True, args=(process.stdout,)
-            ).start()
+            Thread(target=self._read_from_process, daemon=True, args=(process.stdout,)).start()
         self.monitoring = True
 
     def stop_monitoring(self):

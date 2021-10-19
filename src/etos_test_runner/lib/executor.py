@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -95,7 +95,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             try:
                 path = Path(os.getenv("TEST_REGEX"))
                 if path.exists() and path.is_file():
-                    regex = json.load(path.open())
+                    regex = json.load(path.open(encoding="utf-8"))
                     for key, value in regex.items():
                         self.test_regex[key] = re.compile(value)
                 else:
@@ -123,11 +123,11 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         test_directory_name = Path().absolute().name
         checkout = workspace.joinpath(f"checkout_{test_directory_name}.sh")
-        with checkout.open(mode="w") as checkout_file:
+        with checkout.open(mode="w", encoding="utf-8") as checkout_file:
             checkout_file.write('eval "$(pyenv init -)"\n')
             checkout_file.write("pyenv shell --unset\n")
             for command in test_checkout:
-                checkout_file.write("{} || exit 1\n".format(command))
+                checkout_file.write(f"{command} || exit 1\n")
 
         self.logger.info("Checkout script:\n" "%s", checkout.read_text())
 
@@ -141,7 +141,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             signal.alarm(0)
         if not success:
             pprint(output)
-            raise Exception("Could not checkout tests using '{}'".format(test_checkout))
+            raise Exception(f"Could not checkout tests using {test_checkout!r}")
 
     def _build_test_command(self):
         """Build up the actual test command based on data from event."""
@@ -149,7 +149,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         executor = Path().joinpath("executor.sh")
         copy(base_executor, executor)
 
-        self.logger.info("Executor script:\n" "%s", executor.read_text())
+        self.logger.info("Executor script:\n" "%s", executor.read_text(encoding="utf-8"))
 
         test_command = ""
         parameters = []
@@ -158,11 +158,10 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             if value == "":
                 parameters.append(parameter)
             else:
-                parameters.append("{}={}".format(parameter, value))
+                parameters.append(f"{parameter}={value}")
+        parameters = " ".join(parameters)
 
-        test_command = "./{} {} {} 2>&1".format(
-            str(executor), self.test_command, " ".join(parameters)
-        )
+        test_command = f"./{executor} {self.test_command} {parameters} 2>&1"
         return test_command
 
     def __enter__(self):
@@ -181,12 +180,12 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type command: str
         """
         environ = Path().joinpath("environ.sh")
-        with environ.open(mode="w") as environ_file:
+        with environ.open(mode="w", encoding="utf-8") as environ_file:
             for arg in command:
-                environ_file.write("{} || exit 1\n".format(arg))
+                environ_file.write(f"{arg} || exit 1\n")
         self.logger.info(
             "Pre-execution script (includes ENVIRONMENT):\n" "%s",
-            environ.read_text(),
+            environ.read_text(encoding="utf-8"),
         )
 
     def _build_environment_command(self):
@@ -196,7 +195,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :rtype: str
         """
         environments = [
-            "export {}={}".format(key, shlex.quote(value))
+            f"export {key}={shlex.quote(value)}"
             for key, value in self.test_environment_variables.items()
         ]
         return environments + self.pre_test_execution
@@ -226,9 +225,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
-        return self.etos.events.send_test_case_started(
-            triggered, links={"CONTEXT": self.context}
-        )
+        return self.etos.events.send_test_case_started(triggered, links={"CONTEXT": self.context})
 
     def _finished(self, test_name, result):
         """Send a testcase finished event.
@@ -273,27 +270,17 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             self.current_test = test_name[0]
             self.tests.setdefault(self.current_test, {})
         if self.test_regex["triggered"].match(line):
-            self.tests[self.current_test]["triggered"] = self._triggered(
-                self.current_test
-            )
+            self.tests[self.current_test]["triggered"] = self._triggered(self.current_test)
         if self.test_regex["started"].match(line):
             self.tests[self.current_test]["started"] = self._started(self.current_test)
         if self.test_regex["passed"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(
-                self.current_test, "PASSED"
-            )
+            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "PASSED")
         if self.test_regex["failed"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(
-                self.current_test, "FAILED"
-            )
+            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "FAILED")
         if self.test_regex["error"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(
-                self.current_test, "ERROR"
-            )
+            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "ERROR")
         if self.test_regex["skipped"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(
-                self.current_test, "SKIPPED"
-            )
+            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "SKIPPED")
 
     def execute(self, workspace):
         """Execute a test case.
