@@ -238,8 +238,9 @@ class TestRunner:
             if self.etos.feature_flags.clm:
                 self.logger.info("Send confidence event.")
                 self.confidence_level(result, test_suite_started)
-        timeout = time.time() + 30
-        self.logger.info("Waiting for eiffel publisher to deliver events (30s).")
+
+        timeout = time.time() + 600  # 10 minutes
+        self.logger.info("Waiting for eiffel publisher to deliver events (600s).")
 
         previous = 0
         # pylint:disable=protected-access
