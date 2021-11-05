@@ -95,7 +95,8 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             try:
                 path = Path(os.getenv("TEST_REGEX"))
                 if path.exists() and path.is_file():
-                    regex = json.load(path.open(encoding="utf-8"))
+                    with path.open(encoding="utf-8") as regex_file:
+                        regex = json.load(regex_file)
                     for key, value in regex.items():
                         self.test_regex[key] = re.compile(value)
                 else:
