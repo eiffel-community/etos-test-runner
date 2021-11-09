@@ -79,30 +79,6 @@ class TestRunner:
                 return test_suite_started["meta"]["id"]
         raise Exception("Missing main suite events, exiting!")
 
-    def confidence_level(self, test_results, test_suite_started):
-        """Publish confidence level modified event.
-
-        :param test_results: Results of the test suite.
-        :type test_results: bool
-        :param test_suite_started: Test suite started event to use as Cause for this confidence.
-        :type test_suite_started: :obj:`eiffellib.events.EiffelTestSuiteStartedEvent`
-        """
-        self.logger.warning(
-            "DEPRECATED: Please note that confidence levels are deprecated in ETOS.\n"
-            "Set feature flag CLM to false in order to disable this deprecated feature."
-        )
-        confidence = self.etos.events.send_confidence_level_modified(
-            f"{self.config.get('name')}_OK",
-            "SUCCESS" if test_results else "FAILURE",
-            links={
-                "CONTEXT": self.etos.config.get("context"),
-                "CAUSE": test_suite_started,
-                "SUBJECT": self.config.get("artifact"),
-            },
-            issuer=self.issuer,
-        )
-        print(confidence.pretty)
-
     def environment(self, context):
         """Send out which environment we're executing within.
 
@@ -235,9 +211,6 @@ class TestRunner:
                 outcome=outcome,
                 persistentLogs=self.log_area.persistent_logs,
             )
-            if self.etos.feature_flags.clm:
-                self.logger.info("Send confidence event.")
-                self.confidence_level(result, test_suite_started)
 
         timeout = time.time() + 600  # 10 minutes
         self.logger.info("Waiting for eiffel publisher to deliver events (600s).")

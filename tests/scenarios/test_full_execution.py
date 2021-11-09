@@ -170,7 +170,6 @@ class TestFullExecution(TestCase):
             "EiffelArtifactCreatedEvent",
             "EiffelArtifactPublishedEvent",
             "EiffelTestSuiteFinishedEvent",
-            "EiffelConfidenceLevelModifiedEvent",
             "EiffelActivityFinishedEvent",
         ]
         for event_name in event_names_in_order:
