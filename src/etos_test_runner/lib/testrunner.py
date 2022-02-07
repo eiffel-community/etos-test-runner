@@ -205,12 +205,13 @@ class TestRunner:
             pprint(outcome)
 
             self.logger.info("Send test suite finished event.")
-            self.etos.events.send_test_suite_finished(
+            test_suite_finished = self.etos.events.send_test_suite_finished(
                 test_suite_started,
                 links={"CONTEXT": self.etos.config.get("context")},
                 outcome=outcome,
                 persistentLogs=self.log_area.persistent_logs,
             )
+            self.logger.info(test_suite_finished.pretty)
 
         timeout = time.time() + 600  # 10 minutes
         self.logger.info("Waiting for eiffel publisher to deliver events (600s).")
