@@ -236,6 +236,7 @@ class TestLogUpload(TestCase):
                 )
                 self.assertTrue(as_json)
 
+                # pylint:disable=modified-iterating-list
                 for path in filenames:
                     if filename.name == path:
                         filenames.remove(path)

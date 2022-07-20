@@ -105,7 +105,7 @@ class LogArea:
         :return: Filenames and paths.
         :rtype: list
         """
-        test_name = self.etos.config.get("current_test")
+        test_name = self.etos.config.get("test_name")
         items = []
         self.logger.info("Collecting logs/artifacts for %r", test_name or "global")
         for item in path.iterdir():
@@ -148,7 +148,7 @@ class LogArea:
         :param artifacts: Artifacts that exists within this event.
         :type artifacts: list
         """
-        test_name = self.etos.config.get("current_test")
+        test_name = self.etos.config.get("test_name")
         if test_name:
             identity = f"pkg:etos-test-output/{self.suite_name}/{test_name}"
         else:

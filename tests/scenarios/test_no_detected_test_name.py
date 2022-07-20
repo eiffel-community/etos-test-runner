@@ -26,7 +26,7 @@ from etos_lib.lib.debug import Debug
 from etos_test_runner.etr import ETR
 
 TEST = """#!/bin/bash
-echo ==== test_name_yo ====
+echo === cannot_be_found ===
 echo == STARTED ==
 echo == PASSED ==
 exit 0
@@ -35,7 +35,7 @@ exit 0
 REGEX = """{
     "test_name": "==== (.*) ====",
     "triggered": "==== .* ====",
-    "started": "== STARTED ==",
+    "started": "==== .* ====",
     "passed": "== PASSED ==",
     "failed": "== FAILED ==",
     "skipped": "== SKIPPED ==",
@@ -44,7 +44,7 @@ REGEX = """{
 """
 
 SUITE = {
-    "name": "Test ETOS API scenario",
+    "name": "Test ETOS API scenario undetected test name",
     "priority": 1,
     "recipes": [
         {
@@ -180,42 +180,16 @@ class TestFullExecution(TestCase):
             else:
                 os.environ[key] = value
 
-    def validate_event_name_order(self, events):
-        """Validate ETR sent events.
-
-        :raises AssertionError: If events are not correct.
-
-        :param events: All events sent, in order.
-        :type events: deque
-        """
-        self.logger.info(events)
-        event_names_in_order = [
-            "EiffelActivityTriggeredEvent",
-            "EiffelActivityStartedEvent",
-            "EiffelTestSuiteStartedEvent",
-            "EiffelTestCaseTriggeredEvent",
-            "EiffelTestCaseStartedEvent",
-            "EiffelTestCaseFinishedEvent",
-            "EiffelArtifactCreatedEvent",
-            "EiffelArtifactPublishedEvent",
-            "EiffelTestSuiteFinishedEvent",
-            "EiffelActivityFinishedEvent",
-        ]
-        for event_name in event_names_in_order:
-            self.assertEqual(events.popleft().meta.type, event_name)
-        self.assertEqual(list(events), [])
-
-    def test_full(self):
-        """Test that a full execution scenario works as expected.
+    def test_not_finding_test_name(self):
+        """Test that execution finished properly even if no test name is detected.
 
         Approval criteria:
-            - It shall be possible to execute a full suite in ETR.
-            - ETR shall send events in the correct order.
+            - It shall be possible to execute a full suite in ETR even if
+              a test name is not detected.
 
         Test steps::
             1. Initialize and run ETR.
-            2. Verify that events were sent in the correct order.
-            3. Verify that ETR returned with status code 0.
+            2. Verify that ETR returned with status code 0.
         """
 
         environment = {
@@ -230,9 +204,6 @@ class TestFullExecution(TestCase):
             self.logger.info("STEP: Initialize and run ETR.")
             etr = ETR()
             result = etr.run_etr()
-
-            self.logger.info("STEP: Verify that events were sent in the correct order.")
-            self.validate_event_name_order(self.debug.events_published.copy())
 
             self.logger.info("STEP: Verify that ETR returned with status code 0.")
             # Result is either dictionary with outcome or an exit status code.

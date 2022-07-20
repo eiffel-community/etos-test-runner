@@ -154,7 +154,7 @@ class TestRunner:
             description = f"At least some {suite_name} tests failed."
         elif not description and result:
             self.logger.info(
-                "No description and result is a success. " "All tests executed successfully."
+                "No description and result is a success. All tests executed successfully."
             )
             description = f"All {suite_name} tests completed successfully."
         else:
@@ -182,6 +182,7 @@ class TestRunner:
 
         result = True
         description = None
+        executed = False
         try:
             with Workspace(self.log_area) as workspace:
                 self.logger.info("Start IUT monitoring.")

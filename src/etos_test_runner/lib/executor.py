@@ -130,7 +130,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             for command in test_checkout:
                 checkout_file.write(f"{command} || exit 1\n")
 
-        self.logger.info("Checkout script:\n" "%s", checkout.read_text())
+        self.logger.info("Checkout script:\n %s", checkout.read_text())
 
         signal.signal(signal.SIGALRM, _test_checkout_signal_handler)
         signal.alarm(60)
@@ -150,7 +150,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         executor = Path().joinpath("executor.sh")
         copy(base_executor, executor)
 
-        self.logger.info("Executor script:\n" "%s", executor.read_text(encoding="utf-8"))
+        self.logger.info("Executor script:\n %s", executor.read_text(encoding="utf-8"))
 
         test_command = ""
         parameters = []
@@ -167,12 +167,12 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
     def __enter__(self):
         """Enter context and set current test."""
-        self.etos.config.set("current_test", self.test_name)
+        self.etos.config.set("test_name", self.test_name)
         return self
 
     def __exit__(self, _type, value, traceback):
         """Exit context and unset current test."""
-        self.etos.config.set("current_test", None)
+        self.etos.config.set("test_name", None)
 
     def _pre_execution(self, command):
         """Write pre execution command to a shell script.
@@ -185,7 +185,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             for arg in command:
                 environ_file.write(f"{arg} || exit 1\n")
         self.logger.info(
-            "Pre-execution script (includes ENVIRONMENT):\n" "%s",
+            "Pre-execution script (includes ENVIRONMENT):\n %s",
             environ.read_text(encoding="utf-8"),
         )
 
@@ -254,6 +254,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             }
         else:
             outcome = {"verdict": "PASSED", "conclusion": "SUCCESSFUL"}
+        self.current_test = None
         return self.etos.events.send_test_case_finished(
             triggered, outcome, links={"CONTEXT": self.context}
         )
@@ -267,21 +268,26 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         if not isinstance(line, str):
             return
         test_name = self.test_regex["test_name"].findall(line)
-        if test_name:
+        if test_name:  # A new test case has been detected.
             self.current_test = test_name[0]
             self.tests.setdefault(self.current_test, {})
+        elif self.current_test is None:  # No test case has been detected.
+            return
+        current_test = self.current_test
+
         if self.test_regex["triggered"].match(line):
-            self.tests[self.current_test]["triggered"] = self._triggered(self.current_test)
+            self.tests[current_test]["triggered"] = self._triggered(current_test)
         if self.test_regex["started"].match(line):
-            self.tests[self.current_test]["started"] = self._started(self.current_test)
+            self.tests[current_test]["started"] = self._started(current_test)
+
         if self.test_regex["passed"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "PASSED")
-        if self.test_regex["failed"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "FAILED")
-        if self.test_regex["error"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "ERROR")
-        if self.test_regex["skipped"].match(line):
-            self.tests[self.current_test]["finished"] = self._finished(self.current_test, "SKIPPED")
+            self.tests[current_test]["finished"] = self._finished(current_test, "PASSED")
+        elif self.test_regex["failed"].match(line):
+            self.tests[current_test]["finished"] = self._finished(current_test, "FAILED")
+        elif self.test_regex["error"].match(line):
+            self.tests[current_test]["finished"] = self._finished(current_test, "ERROR")
+        elif self.test_regex["skipped"].match(line):
+            self.tests[current_test]["finished"] = self._finished(current_test, "SKIPPED")
 
     def execute(self, workspace):
         """Execute a test case.
@@ -311,6 +317,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             )
 
             self.logger.info("Wait for test to finish.")
+            # We must consume the iterator here, even if we do not parse the lines.
             for _, line in iterator:
                 if self.test_regex:
                     self.parse(line)
