@@ -113,6 +113,7 @@ class ETR:
         }
         plugins = []
         for name, module in discovered_plugins.items():
+            _LOGGER.info("Loading plugin: %r", name)
             if not hasattr(module, "ETRPlugin"):
                 raise Exception(f"{name} does not have an ETRPlugin class!")
             plugins.append(module.ETRPlugin(self.etos))
