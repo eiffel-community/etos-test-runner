@@ -25,77 +25,73 @@ class ETRPlugin(Base):
         super().__init__(*args, **kwargs)
         self.tests = {}
         self.current_test = None
+        self.context = self.etos.config.get("context")
 
-    def on_test_case_started(self, test_name):
+    def on_started(self, test_name):
         """Send a testcase started event.
 
         :param test_name: Name of test that has started.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
-        event = self.etos.events.send_test_case_started(triggered, links={"CONTEXT": context})
+        event = self.etos.events.send_test_case_started(triggered, links={"CONTEXT": self.context})
         self.tests[test_name]["started"] = event
 
-    def on_test_case_triggered(self, test_name):
+    def on_triggered(self, test_name):
         """Send a testcase triggered event.
 
         :param test_name: Name of test that has triggered.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         self.tests.setdefault(test_name, {})
         event = self.etos.events.send_test_case_triggered(
             {"id": test_name},
             self.etos.config.get("artifact"),
-            links={"CONTEXT": context},
+            links={"CONTEXT": self.context},
         )
         self.tests[test_name]["triggered"] = event
 
-    def on_test_case_error(self, test_name):
+    def on_error(self, test_name):
         """Send a testcase finished event with error outcome.
 
         :param test_name: Name of test that has finished.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
         outcome = {"verdict": "FAILED", "conclusion": "INCONCLUSIVE"}
         event = self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": context}
+            triggered, outcome, links={"CONTEXT": self.context}
         )
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_test_case_failure(self, test_name):
+    def on_failure(self, test_name):
         """Send a testcase finished event with failed outcome.
 
         :param test_name: Name of test that has finished.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
         self.current_test = None
         outcome = {"verdict": "FAILED", "conclusion": "FAILED"}
         event = self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": context}
+            triggered, outcome, links={"CONTEXT": self.context}
         )
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_test_case_skipped(self, test_name):
+    def on_skipped(self, test_name):
         """Send a testcase finished event with skipped outcome.
 
         :param test_name: Name of test that has finished.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
@@ -106,25 +102,24 @@ class ETRPlugin(Base):
             "description": "SKIPPED",
         }
         event = self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": context}
+            triggered, outcome, links={"CONTEXT": self.context}
         )
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_test_case_success(self, test_name):
+    def on_success(self, test_name):
         """Send a testcase finished event with successful outcome.
 
         :param test_name: Name of test that has finished.
         :type test_name: str
         """
-        context = self.etos.config.get("sub_suite_id")
         triggered = self.tests[test_name].get("triggered")
         if triggered is None:
             return None
         self.current_test = None
         outcome = {"verdict": "PASSED", "conclusion": "SUCCESSFUL"}
         event = self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": context}
+            triggered, outcome, links={"CONTEXT": self.context}
         )
         self.tests[test_name]["finished"] = event
         self.current_test = None
