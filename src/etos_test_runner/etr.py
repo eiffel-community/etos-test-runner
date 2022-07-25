@@ -21,6 +21,8 @@ import sys
 import logging
 import os
 import signal
+import importlib
+import pkgutil
 from pprint import pprint
 
 from etos_lib import ETOS
@@ -102,6 +104,20 @@ class ETR:
         test_runner = TestRunner(iut, self.etos)
         return test_runner.execute()
 
+    def load_plugins(self):
+        """Load plugins from environment using the name etr_."""
+        discovered_plugins = {
+            name: importlib.import_module(name)
+            for _, name, _ in pkgutil.iter_modules()
+            if name.startswith("etr_")
+        }
+        plugins = []
+        for name, module in discovered_plugins.items():
+            if not hasattr(module, "ETRPlugin"):
+                raise Exception(f"{name} does not have an ETRPlugin class!")
+            plugins.append(module.ETRPlugin(self.etos))
+        self.etos.config.set("plugins", plugins)
+
     def run_etr(self):
         """Send activity events and run ETR.
 
@@ -110,6 +126,7 @@ class ETR:
         """
         _LOGGER.info("Starting ETR.")
         self.download_and_load()
+        self.load_plugins()
         try:
             activity_name = self.etos.config.get("test_config").get("name")
             triggered = self.etos.events.send_activity_triggered(activity_name)

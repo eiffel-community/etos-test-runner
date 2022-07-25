@@ -83,6 +83,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         self.iut = iut
         self.etos = etos
         self.context = self.etos.config.get("context")
+        self.plugins = self.etos.config.get("plugins")
         self.result = True
 
     def load_regex(self):
@@ -202,62 +203,34 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         return environments + self.pre_test_execution
 
     def _triggered(self, test_name):
-        """Send a test case triggered event.
+        """Call on_triggered for all ETR plugins.
 
         :param test_name: Name of test that is triggered.
         :type test_name: str
-        :return: Test case triggered event created and sent.
-        :rtype: :obj:`eiffellib.events.eiffel_test_case_triggered_event.EiffelTestCaseTriggeredEvent`  # pylint:disable=line-too-long
         """
-        return self.etos.events.send_test_case_triggered(
-            {"id": test_name},
-            self.etos.config.get("artifact"),
-            links={"CONTEXT": self.context},
-        )
+        for plugin in self.plugins:
+            plugin.on_triggered(test_name)
 
     def _started(self, test_name):
-        """Send a testcase started event.
+        """Call on_started for all ETR plugins.
 
         :param test_name: Name of test that has started.
         :type test_name: str
-        :return: Test case started event created and sent.
-        :rtype: :obj:`eiffellib.events.eiffel_test_case_started_event.EiffelTestCaseStartedEvent`
         """
-        triggered = self.tests[test_name].get("triggered")
-        if triggered is None:
-            return None
-        return self.etos.events.send_test_case_started(triggered, links={"CONTEXT": self.context})
+        for plugin in self.plugins:
+            plugin.on_started(test_name)
 
     def _finished(self, test_name, result):
-        """Send a testcase finished event.
+        """Call on_finished for all ETR plugins.
 
         :param test_name: Name of test that is finished.
         :type test_name: str
         :param result: Result of test case.
         :type result: str
-        :return: Test case finished event created and sent.
-        :rtype: :obj:`eiffellib.events.eiffel_test_case_finished_event.EiffelTestCaseFinishedEvent`
         """
-        triggered = self.tests[test_name].get("triggered")
-        if triggered is None:
-            return None
-
-        if result == "ERROR":
-            outcome = {"verdict": "FAILED", "conclusion": "INCONCLUSIVE"}
-        elif result == "FAILED":
-            outcome = {"verdict": "FAILED", "conclusion": "FAILED"}
-        elif result == "SKIPPED":
-            outcome = {
-                "verdict": "PASSED",
-                "conclusion": "SUCCESSFUL",
-                "description": "SKIPPED",
-            }
-        else:
-            outcome = {"verdict": "PASSED", "conclusion": "SUCCESSFUL"}
+        for plugin in self.plugins:
+            plugin.on_finished(test_name, result)
         self.current_test = None
-        return self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": self.context}
-        )
 
     def parse(self, line):
         """Parse test output in order to send test case events.
@@ -276,18 +249,17 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         current_test = self.current_test
 
         if self.test_regex["triggered"].match(line):
-            self.tests[current_test]["triggered"] = self._triggered(current_test)
+            self._triggered(current_test)
         if self.test_regex["started"].match(line):
-            self.tests[current_test]["started"] = self._started(current_test)
-
+            self._started(current_test)
         if self.test_regex["passed"].match(line):
-            self.tests[current_test]["finished"] = self._finished(current_test, "PASSED")
-        elif self.test_regex["failed"].match(line):
-            self.tests[current_test]["finished"] = self._finished(current_test, "FAILED")
-        elif self.test_regex["error"].match(line):
-            self.tests[current_test]["finished"] = self._finished(current_test, "ERROR")
-        elif self.test_regex["skipped"].match(line):
-            self.tests[current_test]["finished"] = self._finished(current_test, "SKIPPED")
+            self._finished(current_test, "PASSED")
+        if self.test_regex["failed"].match(line):
+            self._finished(current_test, "FAILED")
+        if self.test_regex["error"].match(line):
+            self._finished(current_test, "ERROR")
+        if self.test_regex["skipped"].match(line):
+            self._finished(current_test, "SKIPPED")
 
     def execute(self, workspace):
         """Execute a test case.
