@@ -182,9 +182,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type command: str
         """
         environ = Path().joinpath("environ.sh")
-        with environ.open(mode="w", encoding="utf-8") as environ_file:
+        with environ.open(mode="w", encoding="utf-8") as environ_test_case_file:
             for arg in command:
-                environ_file.write(f"{arg} || exit 1\n")
+                environ_test_case_file.write(f"{arg} || exit 1\n")
         self.logger.info(
             "Pre-execution script (includes ENVIRONMENT):\n %s",
             environ.read_text(encoding="utf-8"),
@@ -218,10 +218,10 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type test_name: str
         """
         for plugin in self.plugins:
-            plugin.on_started(test_name)
+            plugin.on_test_case_started(test_name)
 
     def _finished(self, test_name, result):
-        """Call on_finished for all ETR plugins.
+        """Call on_test_case_finished for all ETR plugins.
 
         :param test_name: Name of test that is finished.
         :type test_name: str
@@ -229,7 +229,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type result: str
         """
         for plugin in self.plugins:
-            plugin.on_finished(test_name, result)
+            plugin.on_test_case_finished(test_name, result)
         self.current_test = None
 
     def parse(self, line):

@@ -27,7 +27,7 @@ class ETRPlugin(Base):
         self.current_test = None
         self.context = self.etos.config.get("context")
 
-    def on_started(self, test_name):
+    def on_test_case_started(self, test_name):
         """Send a testcase started event.
 
         :param test_name: Name of test that has started.
@@ -39,7 +39,7 @@ class ETRPlugin(Base):
         event = self.etos.events.send_test_case_started(triggered, links={"CONTEXT": self.context})
         self.tests[test_name]["started"] = event
 
-    def on_triggered(self, test_name):
+    def on_test_case_triggered(self, test_name):
         """Send a testcase triggered event.
 
         :param test_name: Name of test that has triggered.
@@ -53,7 +53,7 @@ class ETRPlugin(Base):
         )
         self.tests[test_name]["triggered"] = event
 
-    def on_error(self, test_name):
+    def on_test_case_error(self, test_name):
         """Send a testcase finished event with error outcome.
 
         :param test_name: Name of test that has finished.
@@ -69,7 +69,7 @@ class ETRPlugin(Base):
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_failure(self, test_name):
+    def on_test_case_failure(self, test_name):
         """Send a testcase finished event with failed outcome.
 
         :param test_name: Name of test that has finished.
@@ -86,7 +86,7 @@ class ETRPlugin(Base):
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_skipped(self, test_name):
+    def on_test_case_skipped(self, test_name):
         """Send a testcase finished event with skipped outcome.
 
         :param test_name: Name of test that has finished.
@@ -107,7 +107,7 @@ class ETRPlugin(Base):
         self.tests[test_name]["finished"] = event
         self.current_test = None
 
-    def on_success(self, test_name):
+    def on_test_case_success(self, test_name):
         """Send a testcase finished event with successful outcome.
 
         :param test_name: Name of test that has finished.
