@@ -46,6 +46,7 @@ class TestRunner:
         self.log_area = LogArea(self.etos)
         self.iut_monitoring = IutMonitoring(self.iut)
         self.issuer = {"name": "ETOS Test Runner"}
+        self.plugins = self.etos.config.get("plugins")
 
     def test_suite_started(self):
         """Publish a test suite started event.
@@ -165,13 +166,44 @@ class TestRunner:
             "conclusion": conclusion,
         }
 
+    def _test_suite_triggered(self, name):
+        """Call on_test_suite_triggered for all ETR plugins.
+
+        :param name: Name of test suite that triggered.
+        :type name: str
+        """
+        for plugin in self.plugins:
+            plugin.on_test_suite_triggered(name)
+
+    def _test_suite_started(self, name):
+        """Call on_test_suite_finished for all ETR plugins.
+
+        :param name: Name of test suite that finished.
+        :type name: str
+        """
+        for plugin in self.plugins:
+            plugin.on_test_suite_started(name)
+
+    def _test_suite_finished(self, name, outcome):
+        """Call on_test_suite_finished for all ETR plugins.
+
+        :param name: Name of test suite that finished.
+        :type name: str
+        :param outcome: Outcome of test suite execution.
+        :type outcome: dict
+        """
+        for plugin in self.plugins:
+            plugin.on_test_suite_finished(name, outcome)
+
     def execute(self):  # pylint:disable=too-many-branches,disable=too-many-statements
         """Execute all tests in test suite.
 
         :return: Result of execution. Linux exit code.
         :rtype: int
         """
+        self._test_suite_triggered(self.config.get("name"))
         self.logger.info("Send test suite started event.")
+        self._test_suite_started(self.config.get("name"))
         test_suite_started = self.test_suite_started()
         sub_suite_id = test_suite_started.meta.event_id
         main_suite_id = self.main_suite_id(self.etos.config.get("context"))
@@ -206,6 +238,7 @@ class TestRunner:
             pprint(outcome)
 
             self.logger.info("Send test suite finished event.")
+            self._test_suite_finished(self.config.get("name"), outcome)
             test_suite_finished = self.etos.events.send_test_suite_finished(
                 test_suite_started,
                 links={"CONTEXT": self.etos.config.get("context")},
