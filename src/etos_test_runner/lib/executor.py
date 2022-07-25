@@ -182,9 +182,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type command: str
         """
         environ = Path().joinpath("environ.sh")
-        with environ.open(mode="w", encoding="utf-8") as environ_test_case_file:
+        with environ.open(mode="w", encoding="utf-8") as environ_file:
             for arg in command:
-                environ_test_case_file.write(f"{arg} || exit 1\n")
+                environ_file.write(f"{arg} || exit 1\n")
         self.logger.info(
             "Pre-execution script (includes ENVIRONMENT):\n %s",
             environ.read_text(encoding="utf-8"),
