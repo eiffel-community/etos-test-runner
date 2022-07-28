@@ -60,26 +60,17 @@ class TestRunner:
         categories.append(self.iut.identity.name)
         livelogs = self.config.get("log_area", {}).get("livelogs")
 
+        # TODO: Remove CONTEXT link here.
         return self.etos.events.send_test_suite_started(
             suite_name,
-            links={"CONTEXT": self.etos.config.get("context")},
+            links={
+                "CONTEXT": self.etos.config.get("context"),
+                "CAUSE": self.etos.config.get("main_suite_id"),
+            },
             categories=categories,
             types=["FUNCTIONAL"],
             liveLogs=[{"name": "console", "uri": livelogs}],
         )
-
-    def main_suite_id(self, activity_id):
-        """Get the eiffel event id of the mainsuite linked form the activity triggered event.
-
-        :param activity_id: Id of the activity linked to the main suite
-        :type activity_id: str
-        :return: Id of the main suite linked from the activity triggered event
-        :rtype: str
-        """
-        for test_suite_started in request_test_suite_started(self.etos, activity_id):
-            if not "Sub suite" in test_suite_started["data"]["testSuiteCategories"]:
-                return test_suite_started["meta"]["id"]
-        raise Exception("Missing main suite events, exiting!")
 
     def environment(self, context):
         """Send out which environment we're executing within.
@@ -207,10 +198,9 @@ class TestRunner:
         self._test_suite_started(self.config.get("name"))
         test_suite_started = self.test_suite_started()
         sub_suite_id = test_suite_started.meta.event_id
-        main_suite_id = self.main_suite_id(self.etos.config.get("context"))
+
         self.logger.info("Send test environment events.")
         self.environment(sub_suite_id)
-        self.etos.config.set("main_suite_id", main_suite_id)
         self.etos.config.set("sub_suite_id", sub_suite_id)
 
         result = True
