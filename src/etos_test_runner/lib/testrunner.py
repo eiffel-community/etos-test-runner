@@ -19,7 +19,6 @@ import os
 import logging
 from pprint import pprint
 
-from etos_test_runner.lib.graphql import request_test_suite_started
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.workspace import Workspace
