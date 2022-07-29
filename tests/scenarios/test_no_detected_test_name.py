@@ -46,6 +46,7 @@ REGEX = """{
 SUITE = {
     "name": "Test ETOS API scenario undetected test name",
     "priority": 1,
+    "test_suite_started_id": "577381ad-8356-4939-ab77-02e7abe06699",
     "recipes": [
         {
             "constraints": [
@@ -123,18 +124,6 @@ class TestFullExecution(TestCase):
         self.http_request = patcher.start()
         self.http_request.return_value = True
 
-    def _patch_test_suite_started_request(self):
-        """Patch the GraphQL request for test suite started."""
-        patcher = patch("etos_test_runner.lib.testrunner.request_test_suite_started")
-        self.patchers.append(patcher)
-        self.request_test_suite_started = patcher.start()
-        self.request_test_suite_started.return_value = [
-            {
-                "data": {"testSuiteCategories": []},
-                "meta": {"id": "577381ad-8356-4939-ab77-02e7abe06699"},
-            }
-        ]
-
     def setUp(self):
         """Create patch objects and a test folder to execute from."""
         self.patchers = []
@@ -146,7 +135,6 @@ class TestFullExecution(TestCase):
         os.chdir(self.root)
         self._patch_wait_for_request()
         self._patch_http_request()
-        self._patch_test_suite_started_request()
         script = Path.cwd().joinpath("test.sh")
         with open(script, "w", encoding="utf-8") as scriptfile:
             scriptfile.write(TEST)
