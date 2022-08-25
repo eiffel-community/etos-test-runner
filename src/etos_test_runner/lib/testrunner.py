@@ -177,7 +177,7 @@ class TestRunner:
             plugin.on_test_suite_triggered(name)
 
     def _test_suite_started(self, name):
-        """Call on_test_suite_finished for all ETR plugins.
+        """Call on_test_suite_started for all ETR plugins.
 
         :param name: Name of test suite that finished.
         :type name: str
