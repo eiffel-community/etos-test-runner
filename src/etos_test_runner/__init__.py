@@ -14,14 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS test runner module."""
-from pkg_resources import get_distribution, DistributionNotFound
+import os
+from importlib.metadata import version, PackageNotFoundError
+from etos_lib.logging.logger import setup_logging
 
-# pylint:disable=invalid-name
 try:
-    # Change here if project is renamed and does not equal the package name
-    dist_name = __name__
-    __version__ = get_distribution(dist_name).version
-except DistributionNotFound:
-    __version__ = "unknown"
-finally:
-    del get_distribution, DistributionNotFound
+    VERSION = version("etos_test_runner")
+except PackageNotFoundError:
+    VERSION = "Unknown"
+
+DEV = os.getenv("DEV", "false").lower() == "true"
+ENVIRONMENT = "development" if DEV else "production"
+setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT)

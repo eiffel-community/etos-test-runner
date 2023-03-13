@@ -131,7 +131,7 @@ class Workspace:
         :rtype: :obj:`pathlib.Path`
         """
         if self.workspace is None or not self.workspace.is_dir():
-            raise Exception("Workspace not created.")
+            raise Exception("Workspace not created.")  # pylint:disable=broad-exception-raised
         try:
             self.logger.info("Getting test directory with identifier %r", identifier)
             if self.identifiers.get(identifier) is None:
@@ -167,7 +167,7 @@ class Workspace:
     def compress(self):
         """Compress the entire workspace folder."""
         if self.workspace is None or not self.workspace.is_dir():
-            raise Exception("Workspace not created.")
+            raise Exception("Workspace not created.")  # pylint:disable=broad-exception-raised
         self.logger.info("Compress workspace directory")
         compressed_workspace = self.top_dir.joinpath("workspace").relative_to(Path.cwd())
         filename = make_archive(

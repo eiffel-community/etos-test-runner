@@ -22,12 +22,13 @@ from threading import Thread
 from signal import SIGINT
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 from etos_lib.lib.config import Config
+from etos_lib.logging.logger import FORMAT_CONFIG
 
 
 ON_POSIX = "posix" in sys.builtin_module_names
 
 
-class IutMonitoring:
+class IutMonitoring:  # pylint:disable=too-many-instance-attributes
     """Helper class for monitoring IuT health statistics."""
 
     logger = logging.getLogger("IUT Monitoring")
@@ -36,12 +37,13 @@ class IutMonitoring:
     kill_timeout = 30  # Seconds
     monitoring = False
 
-    def __init__(self, iut):
+    def __init__(self, iut, etos):
         """Initialize monitoring.
 
         :param iut: IUT object to monitor.
         :type iut: :obj:`etr.lib.iut.Iut`
         """
+        self.etos = etos
         self.iut = iut
         self.processes = []
         self.config = Config()
@@ -52,9 +54,10 @@ class IutMonitoring:
         :param output: Output to read from.
         :type output: filedescriptor
         """
+        FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
         self.logger.info("Reading output from %r", output)
         for line in iter(output.readline, b""):
-            self.logger.info(line.decode("utf-8"))
+            self.logger.info(line.decode("utf-8").strip())
         output.close()
 
     def start_monitoring(self):

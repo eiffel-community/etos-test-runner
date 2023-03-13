@@ -20,6 +20,7 @@ import logging
 import signal
 import json
 import re
+import subprocess
 from pathlib import Path
 from shutil import copy
 from pprint import pprint
@@ -27,8 +28,17 @@ from pprint import pprint
 BASE = Path(__file__).parent.absolute()
 
 
+class SubprocessReadTimeout(Exception):
+    """Timeout on reading from subprocess."""
+
+
 class TestCheckoutTimeout(TimeoutError):
     """Test checkout timeout exception."""
+
+
+def _subprocess_signal_handler(signum, frame):  # pylint:disable=unused-argument
+    """Raise subprocess read timeout."""
+    raise SubprocessReadTimeout("Timeout while reading subprocess stdout.")
 
 
 def _test_checkout_signal_handler(signum, frame):  # pylint:disable=unused-argument
@@ -111,7 +121,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             except json.decoder.JSONDecodeError as exception:
                 self.logger.error("%r", exception)
                 self.logger.error("Failed to load JSON %r", path)
-            except Exception as exception:  # pylint:disable=broad-except
+            except Exception as exception:  # pylint:disable=broad-exception-caught
                 self.logger.error("%r", exception)
                 self.logger.error("Unknown error when loading regex JSON file.")
 
@@ -136,14 +146,16 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         signal.signal(signal.SIGALRM, _test_checkout_signal_handler)
         signal.alarm(60)
         try:
-            success, output = self.etos.utils.call(
+            success, output = self._call(
                 ["/bin/bash", str(checkout)], shell=True, wait_output=False
             )
         finally:
             signal.alarm(0)
         if not success:
             pprint(output)
-            raise Exception(f"Could not checkout tests using {test_checkout!r}")
+            raise Exception(  # pylint:disable=broad-exception-raised
+                f"Could not checkout tests using {test_checkout!r}"
+            )
 
     def _build_test_command(self):
         """Build up the actual test command based on data from event."""
@@ -232,6 +244,106 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             plugin.on_test_case_finished(test_name, result)
         self.current_test = None
 
+    def _call(
+        self, cmd, shell=False, env=None, executable=None, output=None, wait_output=True
+    ):  # pylint:disable=too-many-arguments
+        """Call a system command.
+
+        :param cmd: Command to run.
+        :type cmd: list
+        :param env: Override subprocess environment.
+        :type env: dict
+        :param executable: Override subprocess executable.
+        :type executable: str
+        :param output: Path to a file to write stdout to.
+        :type output: str
+        :param wait_output: Whether or not to wait for output.
+                            Some commands can fail in a non-interactive
+                            shell due to waiting for 'readline' forever.
+                            Set this to False on commands that we're
+                            not in control of.
+        :type wait_output: boolean
+        :return: Result and output from command.
+        :rtype: tuple
+        """
+        out = []
+        for _, line in self._iterable_call(cmd, shell, env, executable, output, wait_output):
+            if isinstance(line, str):
+                out.append(line)
+            else:
+                success = line
+                break
+        return success, out
+
+    def _iterable_call(
+        self, cmd, shell=False, env=None, executable=None, output=None, wait_output=True
+    ):  # pylint:disable=too-many-arguments
+        """Call a system command and yield the output.
+
+        :param cmd: Command to run.
+        :type cmd: list
+        :param env: Override subprocess environment.
+        :type env: dict
+        :param executable: Override subprocess executable.
+        :type executable: str
+        :param output: Path to a file to write stdout to.
+        :type output: str
+        :param wait_output: Whether or not to wait for output.
+                            Some commands can fail in a non-interactive
+                            shell due to waiting for 'readline' forever.
+                            Set this to False on commands that we're
+                            not in control of.
+        :type wait_output: boolean
+        :return: Result and output from command.
+        :rtype: tuple
+        """
+        self.logger.debug("Running command: %s", " ".join(cmd))
+        if shell:
+            cmd = " ".join(cmd)
+        proc = subprocess.Popen(  # pylint:disable=consider-using-with
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell=shell,
+            env=env,
+            executable=executable,
+        )
+
+        signal.signal(signal.SIGALRM, _subprocess_signal_handler)
+        output_file = None
+        try:
+            if output:
+                # pylint:disable=consider-using-with
+                output_file = open(output, "w", encoding="utf-8")
+            # Make sure you can read all output with 'docker logs'
+            for line in iter(proc.stdout.readline, b""):
+                yield proc, line.decode("utf-8")
+                self.logger.info(line.decode("utf-8").strip())
+                signal.alarm(0)
+
+                if output_file:
+                    output_file.write(line.decode("utf-8"))
+
+                if not wait_output:
+                    signal.alarm(5)
+        except SubprocessReadTimeout:
+            pass
+        finally:
+            if output_file:
+                output_file.close()
+
+        _, err = proc.communicate()
+        if err is not None:
+            self.logger.debug(err.decode("utf-8"))
+        self.logger.debug("Return code: %s (0=Good >0=Bad)", proc.returncode)
+
+        # Unix return code 0 = success >0 = failure.
+        # Python int 0 = failure >0 = success.
+        # Converting unix return code to python bool.
+        success = not proc.returncode
+
+        yield proc, success
+
     def parse(self, line):
         """Parse test output in order to send test case events.
 
@@ -284,7 +396,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             command = self._build_test_command()
 
             self.logger.info("Run test command: %r", command)
-            iterator = self.etos.utils.iterable_call(
+            iterator = self._iterable_call(
                 [command], shell=True, executable="/bin/bash", output=self.report_path
             )
 

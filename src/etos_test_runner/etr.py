@@ -26,8 +26,9 @@ import pkgutil
 from pprint import pprint
 
 from etos_lib import ETOS
+from etos_lib.logging.logger import FORMAT_CONFIG
 
-from etos_test_runner import __version__
+from etos_test_runner import VERSION
 from etos_test_runner.lib.testrunner import TestRunner
 from etos_test_runner.lib.iut import Iut
 
@@ -36,13 +37,6 @@ from etos_test_runner.lib.iut import Iut
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 _LOGGER = logging.getLogger(__name__)
-LOGFORMAT = "[%(asctime)s] %(levelname)s:%(message)s"
-logging.basicConfig(
-    level=logging.DEBUG,
-    stream=sys.stdout,
-    format=LOGFORMAT,
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 
 def parse_args(args):
@@ -56,7 +50,7 @@ def parse_args(args):
         "-v",
         "--version",
         action="version",
-        version=f"etos_test_runner {__version__}",
+        version=f"etos_test_runner {VERSION}",
     )
     return parser.parse_args(args)
 
@@ -69,6 +63,7 @@ class ETR:
     def __init__(self):
         """Initialize ETOS library and start eiffel publisher."""
         self.etos = ETOS("ETOS Test Runner", os.getenv("HOSTNAME"), "ETOS Test Runner")
+
         self.etos.config.rabbitmq_publisher_from_environment()
         # ETR will print the entire environment just before executing.
         # Hide the password.
@@ -82,7 +77,7 @@ class ETR:
     @staticmethod
     def graceful_shutdown(*args):
         """Catch sigterm."""
-        raise Exception("ETR has been terminated.")
+        raise Exception("ETR has been terminated.")  # pylint:disable=broad-exception-raised
 
     def download_and_load(self):
         """Download and load test json."""
@@ -94,6 +89,7 @@ class ETR:
         self.etos.config.set("context", json_config.get("context"))
         self.etos.config.set("artifact", json_config.get("artifact"))
         self.etos.config.set("main_suite_id", json_config.get("test_suite_started_id"))
+        self.etos.config.set("suite_id", json_config.get("suite_id"))
 
     def _run_tests(self):
         """Run tests in ETOS test runner.
@@ -116,7 +112,9 @@ class ETR:
         for name, module in discovered_plugins.items():
             _LOGGER.info("Loading plugin: %r", name)
             if not hasattr(module, "ETRPlugin"):
-                raise Exception(f"{name} does not have an ETRPlugin class!")
+                raise Exception(  # pylint:disable=broad-exception-raised
+                    f"{name} does not have an ETRPlugin class!"
+                )
             plugins.append(module.ETRPlugin(self.etos))
         self.etos.config.set("plugins", plugins)
 
@@ -128,13 +126,14 @@ class ETR:
         """
         _LOGGER.info("Starting ETR.")
         self.download_and_load()
+        FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
         self.load_plugins()
         try:
             activity_name = self.etos.config.get("test_config").get("name")
             triggered = self.etos.events.send_activity_triggered(activity_name)
             self.etos.events.send_activity_started(triggered)
             result = self._run_tests()
-        except Exception as exc:  # pylint:disable=broad-except
+        except Exception as exc:  # pylint:disable=broad-exception-raised
             self.etos.events.send_activity_finished(
                 triggered, {"conclusion": "FAILED", "description": str(exc)}
             )

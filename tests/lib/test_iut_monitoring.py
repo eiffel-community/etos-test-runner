@@ -20,7 +20,7 @@ import logging
 import time
 from pathlib import Path
 from unittest import TestCase
-from etos_lib.lib.config import Config
+from etos_lib import ETOS
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -38,7 +38,8 @@ class TestIutMonitoring(TestCase):
         with open(self.script, "w", encoding="utf-8") as scriptfile:
             for line in script:
                 scriptfile.write(f"{line}\n")
-        self.config = Config()
+        self.etos = ETOS("ETR Test", "ETR Test Host", "ETR Test")
+        self.config = self.etos.config
         self.files = [self.script, Path.cwd().joinpath("output")]
 
     def tearDown(self):
@@ -86,7 +87,7 @@ class TestIutMonitoring(TestCase):
             4. Verify that the script executed.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5
@@ -117,7 +118,7 @@ class TestIutMonitoring(TestCase):
             4. Verify that the scripts executed.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5
@@ -167,7 +168,7 @@ class TestIutMonitoring(TestCase):
             5. Verify that the script was interrupted with SIGINT.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5
@@ -225,7 +226,7 @@ class TestIutMonitoring(TestCase):
             5. Verify that the scripts were interrupted with SIGINT.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5
@@ -306,7 +307,7 @@ class TestIutMonitoring(TestCase):
             5. Verify that the script was interrupted with SIGTERM.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5
@@ -371,7 +372,7 @@ class TestIutMonitoring(TestCase):
             5. Verify that the script was killed.
         """
         self.logger.info("STEP: Initialize IUT monitoring.")
-        iut_monitoring = IutMonitoring(None)
+        iut_monitoring = IutMonitoring(None, self.etos)
         iut_monitoring.interrupt_timeout = 5
         iut_monitoring.terminate_timeout = 5
         iut_monitoring.kill_timeout = 5

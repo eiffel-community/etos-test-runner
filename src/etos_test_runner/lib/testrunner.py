@@ -43,7 +43,7 @@ class TestRunner:
         self.config = self.etos.config.get("test_config")
 
         self.log_area = LogArea(self.etos)
-        self.iut_monitoring = IutMonitoring(self.iut)
+        self.iut_monitoring = IutMonitoring(self.iut, self.etos)
         self.issuer = {"name": "ETOS Test Runner"}
         self.etos.config.set("iut", self.iut)
         self.plugins = self.etos.config.get("plugins")
@@ -214,7 +214,7 @@ class TestRunner:
                 executed = True
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
-        except Exception as exception:  # pylint:disable=broad-except
+        except Exception as exception:  # pylint:disable=broad-exception-raised
             result = False
             executed = False
             description = str(exception)
@@ -254,7 +254,9 @@ class TestRunner:
                     )
                     timeout = time.time() + 10
                 else:
-                    raise Exception("Eiffel publisher did not deliver all eiffel events.")
+                    raise Exception(  # pylint:disable=broad-exception-raised
+                        "Eiffel publisher did not deliver all eiffel events."
+                    )
             previous = current
             time.sleep(1)
         self.logger.info("Tests finished executing.")
