@@ -193,7 +193,7 @@ class TestWorkspace(TestCase):
                     "STEP: Check that test directory was created and exit the context."
                 )
                 if not directory.exists() and directory.is_dir():
-                    raise Exception(  # pylint:disable=broad-exception-raised
+                    raise FileNotFoundError(
                         "Test directory was not properly created."
                     )
                 first_stat = directory.stat()
