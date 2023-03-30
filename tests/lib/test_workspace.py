@@ -203,7 +203,7 @@ class TestWorkspace(TestCase):
                     "STEP: Enter a test directory in a context manager with the same identifer."
                 )
                 if not directory.exists() and directory.is_dir():
-                    raise Exception(  # pylint:disable=broad-exception-raised
+                    raise FileNotFoundError(
                         "Test directory was not properly created."
                     )
 
