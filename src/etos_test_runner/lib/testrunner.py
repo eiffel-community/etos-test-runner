@@ -214,7 +214,7 @@ class TestRunner:
                 executed = True
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
-        except Exception as exception:  # pylint:disable=broad-exception-raised
+        except Exception as exception:  # pylint:disable=broad-except
             result = False
             executed = False
             description = str(exception)
