@@ -42,6 +42,8 @@ class IutMonitoring:  # pylint:disable=too-many-instance-attributes
 
         :param iut: IUT object to monitor.
         :type iut: :obj:`etr.lib.iut.Iut`
+        :param etos: ETOS library instance.
+        :type etos: :obj:`etos_lib.etos.Etos`
         """
         self.etos = etos
         self.iut = iut

@@ -254,9 +254,7 @@ class TestRunner:
                     )
                     timeout = time.time() + 10
                 else:
-                    raise TimeoutError(
-                        "Eiffel publisher did not deliver all eiffel events."
-                    )
+                    raise TimeoutError("Eiffel publisher did not deliver all eiffel events.")
             previous = current
             time.sleep(1)
         self.logger.info("Tests finished executing.")

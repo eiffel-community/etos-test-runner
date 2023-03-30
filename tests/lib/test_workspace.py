@@ -193,9 +193,7 @@ class TestWorkspace(TestCase):
                     "STEP: Check that test directory was created and exit the context."
                 )
                 if not directory.exists() and directory.is_dir():
-                    raise FileNotFoundError(
-                        "Test directory was not properly created."
-                    )
+                    raise FileNotFoundError("Test directory was not properly created.")
                 first_stat = directory.stat()
 
             with workspace.test_directory("dir1") as directory:
@@ -203,9 +201,7 @@ class TestWorkspace(TestCase):
                     "STEP: Enter a test directory in a context manager with the same identifer."
                 )
                 if not directory.exists() and directory.is_dir():
-                    raise FileNotFoundError(
-                        "Test directory was not properly created."
-                    )
+                    raise FileNotFoundError("Test directory was not properly created.")
 
                 self.logger.info("STEP: Verify that the folder was re-used.")
                 self.assertEqual(

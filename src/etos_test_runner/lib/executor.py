@@ -153,9 +153,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             signal.alarm(0)
         if not success:
             pprint(output)
-            raise RuntimeError(
-                f"Could not checkout tests using {test_checkout!r}"
-            )
+            raise RuntimeError(f"Could not checkout tests using {test_checkout!r}")
 
     def _build_test_command(self):
         """Build up the actual test command based on data from event."""
