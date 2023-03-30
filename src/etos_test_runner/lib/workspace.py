@@ -167,7 +167,7 @@ class Workspace:
     def compress(self):
         """Compress the entire workspace folder."""
         if self.workspace is None or not self.workspace.is_dir():
-            raise Exception("Workspace not created.")  # pylint:disable=broad-exception-raised
+            raise FileNotFoundError("Workspace not created.")
         self.logger.info("Compress workspace directory")
         compressed_workspace = self.top_dir.joinpath("workspace").relative_to(Path.cwd())
         filename = make_archive(
