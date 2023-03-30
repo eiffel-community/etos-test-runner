@@ -131,7 +131,7 @@ class Workspace:
         :rtype: :obj:`pathlib.Path`
         """
         if self.workspace is None or not self.workspace.is_dir():
-            raise Exception("Workspace not created.")  # pylint:disable=broad-exception-raised
+            raise FileNotFoundError("Workspace not created.")
         try:
             self.logger.info("Getting test directory with identifier %r", identifier)
             if self.identifiers.get(identifier) is None:
