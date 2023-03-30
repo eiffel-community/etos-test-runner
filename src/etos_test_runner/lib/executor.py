@@ -153,7 +153,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             signal.alarm(0)
         if not success:
             pprint(output)
-            raise Exception(  # pylint:disable=broad-exception-raised
+            raise RuntimeError(
                 f"Could not checkout tests using {test_checkout!r}"
             )
 
