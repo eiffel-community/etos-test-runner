@@ -133,7 +133,7 @@ class ETR:
             triggered = self.etos.events.send_activity_triggered(activity_name)
             self.etos.events.send_activity_started(triggered)
             result = self._run_tests()
-        except Exception as exc:  # pylint:disable=broad-exception-raised
+        except Exception as exc:  # pylint:disable=broad-except
             self.etos.events.send_activity_finished(
                 triggered, {"conclusion": "FAILED", "description": str(exc)}
             )
