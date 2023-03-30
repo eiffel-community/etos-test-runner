@@ -254,7 +254,7 @@ class TestRunner:
                     )
                     timeout = time.time() + 10
                 else:
-                    raise Exception(  # pylint:disable=broad-exception-raised
+                    raise TimeoutError(
                         "Eiffel publisher did not deliver all eiffel events."
                     )
             previous = current
