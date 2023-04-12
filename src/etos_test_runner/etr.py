@@ -103,10 +103,16 @@ class ETR:
 
     def load_plugins(self):
         """Load plugins from environment using the name etr_."""
+        disable_plugins = os.getenv("DISABLE_PLUGINS")
+        disabled_plugins = []
+        if disable_plugins:
+            disabled_plugins = disable_plugins.split(",")
+
         discovered_plugins = {
             name: importlib.import_module(name)
             for _, name, _ in pkgutil.iter_modules()
             if name.startswith("etr_")
+            and name not in disabled_plugins
         }
         plugins = []
         for name, module in discovered_plugins.items():
