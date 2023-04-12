@@ -166,14 +166,14 @@ class TestRunner:
         for plugin in self.plugins:
             plugin.on_test_suite_triggered(name)
 
-    def _test_suite_started(self, name):
+    def _test_suite_started(self, test_suite_started):
         """Call on_test_suite_started for all ETR plugins.
 
-        :param name: Name of test suite that finished.
-        :type name: str
+        :param test_suite_started: The test suite started event
+        :type test_suite_started: :obj:`eiffellib.events.EiffelTestSuiteStartedEvent`
         """
         for plugin in self.plugins:
-            plugin.on_test_suite_started(name)
+            plugin.on_test_suite_started(test_suite_started)
 
     def _test_suite_finished(self, name, outcome):
         """Call on_test_suite_finished for all ETR plugins.
@@ -194,8 +194,8 @@ class TestRunner:
         """
         self._test_suite_triggered(self.config.get("name"))
         self.logger.info("Send test suite started event.")
-        self._test_suite_started(self.config.get("name"))
         test_suite_started = self.test_suite_started()
+        self._test_suite_started(test_suite_started)
         sub_suite_id = test_suite_started.meta.event_id
 
         self.logger.info("Send test environment events.")

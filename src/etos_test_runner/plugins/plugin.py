@@ -33,11 +33,11 @@ class ETRPlugin:
         :type test_suite_name: str
         """
 
-    def on_test_suite_started(self, test_suite_name):
+    def on_test_suite_started(self, test_suite_started):
         """Call when a test suite has started.
 
-        :param test_suite_name: Name of test suite that has started.
-        :type test_suite_name: str
+        :param test_suite_started: The test suite started event.
+        :type test_suite_started: :obj:`eiffellib.events.EiffelTestSuiteStartedEvent`
         """
 
     def on_test_suite_finished(self, test_suite_name, outcome):
