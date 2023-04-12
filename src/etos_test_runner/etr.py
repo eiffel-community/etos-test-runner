@@ -111,8 +111,7 @@ class ETR:
         discovered_plugins = {
             name: importlib.import_module(name)
             for _, name, _ in pkgutil.iter_modules()
-            if name.startswith("etr_")
-            and name not in disabled_plugins
+            if name.startswith("etr_") and name not in disabled_plugins
         }
         plugins = []
         for name, module in discovered_plugins.items():
