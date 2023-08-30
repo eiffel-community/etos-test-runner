@@ -24,13 +24,17 @@ import signal
 import importlib
 import pkgutil
 from pprint import pprint
+from collections import OrderedDict
 
 from etos_lib import ETOS
 from etos_lib.logging.logger import FORMAT_CONFIG
+from jsontas.jsontas import JsonTas
 
 from etos_test_runner import VERSION
 from etos_test_runner.lib.testrunner import TestRunner
 from etos_test_runner.lib.iut import Iut
+from etos_test_runner.lib.custom_dataset import CustomDataset
+from etos_test_runner.lib.decrypt import Decrypt, decrypt
 
 
 # Remove spam from pika.
@@ -63,6 +67,10 @@ class ETR:
     def __init__(self):
         """Initialize ETOS library and start eiffel publisher."""
         self.etos = ETOS("ETOS Test Runner", os.getenv("HOSTNAME"), "ETOS Test Runner")
+        if os.getenv("ETOS_ENCRYPTION_KEY"):
+            os.environ["RABBITMQ_PASSWORD"] = decrypt(
+                os.environ["RABBITMQ_PASSWORD"], os.getenv("ETOS_ENCRYPTION_KEY")
+            )
 
         self.etos.config.rabbitmq_publisher_from_environment()
         # ETR will print the entire environment just before executing.
@@ -81,15 +89,24 @@ class ETR:
 
     def download_and_load(self):
         """Download and load test json."""
-        generator = self.etos.http.wait_for_request(self.tests_url)
+        generator = self.etos.http.wait_for_request(self.tests_url, as_json=False)
         for response in generator:
-            json_config = response
+            json_config = response.json(object_pairs_hook=OrderedDict)
             break
-        self.etos.config.set("test_config", json_config)
-        self.etos.config.set("context", json_config.get("context"))
-        self.etos.config.set("artifact", json_config.get("artifact"))
-        self.etos.config.set("main_suite_id", json_config.get("test_suite_started_id"))
-        self.etos.config.set("suite_id", json_config.get("suite_id"))
+        dataset = CustomDataset()
+        dataset.add("decrypt", Decrypt)
+        config = JsonTas(dataset).run(json_config)
+
+        # ETR will print the entire environment just before executing.
+        # Hide the encryption key.
+        if os.getenv("ETOS_ENCRYPTION_KEY"):
+            os.environ["ETOS_ENCRYPTION_KEY"] = "*********"
+
+        self.etos.config.set("test_config", config)
+        self.etos.config.set("context", config.get("context"))
+        self.etos.config.set("artifact", config.get("artifact"))
+        self.etos.config.set("main_suite_id", config.get("test_suite_started_id"))
+        self.etos.config.set("suite_id", config.get("suite_id"))
 
     def _run_tests(self):
         """Run tests in ETOS test runner.
@@ -161,6 +178,8 @@ def main(args):
 
 def run():
     """Entry point to ETR."""
+    # Disable sending logs for now.
+    os.environ["ETOS_ENABLE_SENDING_LOGS"] = "false"
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     main(sys.argv[1:])
 

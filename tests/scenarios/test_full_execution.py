@@ -15,13 +15,15 @@
 # limitations under the License.
 """Tests full executions."""
 import os
+import json
 import logging
+from collections import OrderedDict
 from copy import deepcopy
 from shutil import rmtree
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from etos_lib.lib.debug import Debug
 from etos_test_runner.etr import ETR
 
@@ -115,7 +117,11 @@ class TestFullExecution(TestCase):
         self.patchers.append(patcher)
         self.wait_for_request = patcher.start()
         self.suite = deepcopy(SUITE)
-        self.wait_for_request.return_value = [self.suite]
+        response = Mock()
+        response.json.return_value = json.loads(
+            json.dumps(self.suite), object_pairs_hook=OrderedDict
+        )
+        self.wait_for_request.return_value = [response]
 
     def _patch_http_request(self):
         """Patch the ETOS library http request method."""

@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS test runner module."""
 import os
+import logging
 from importlib.metadata import version, PackageNotFoundError
 from etos_lib.logging.logger import setup_logging
 
@@ -26,3 +27,10 @@ except PackageNotFoundError:
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
 setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT)
+# JSONTas would print all passwords as they are decrypted,
+# which is not safe, so we disable propagation on the loggers.
+# Propagation needs to be set to 0 instead of disabling the
+# logger or setting the loglevel higher because of how the
+# etos library sets up logging.
+logging.getLogger("JSONTas").propagate = 0
+logging.getLogger("Dataset").propagate = 0

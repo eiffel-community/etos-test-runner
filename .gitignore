@@ -10,6 +10,7 @@
 __pycache__/*
 .cache/*
 .*.swp
+.tags
 
 # Project files
 .ropeproject
@@ -17,6 +18,7 @@ __pycache__/*
 .pydevproject
 .settings
 .idea
+.python-version
 
 # Package files
 *.egg
