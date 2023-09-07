@@ -178,8 +178,6 @@ def main(args):
 
 def run():
     """Entry point to ETR."""
-    # Disable sending logs for now.
-    os.environ["ETOS_ENABLE_SENDING_LOGS"] = "false"
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     main(sys.argv[1:])
 

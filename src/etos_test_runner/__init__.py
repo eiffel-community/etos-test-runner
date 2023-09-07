@@ -24,6 +24,9 @@ try:
 except PackageNotFoundError:
     VERSION = "Unknown"
 
+# Disable sending logs for now.
+os.environ["ETOS_ENABLE_SENDING_LOGS"] = "false"
+
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
 setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT)
