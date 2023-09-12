@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Pre-installed ETR event send plugin."""
+import os
 from etos_test_runner.plugins.plugin import ETRPlugin as Base
 
 
@@ -105,8 +106,9 @@ class ETRPlugin(Base):
             "conclusion": "SUCCESSFUL",
             "description": "SKIPPED",
         }
+        environment_id = os.getenv("ENVIRONMENT_ID")
         event = self.etos.events.send_test_case_finished(
-            triggered, outcome, links={"CONTEXT": context}
+            triggered, outcome, links={"CONTEXT": context, "ENVIRONMENT": environment_id}
         )
         self.tests[test_name]["finished"] = event
         self.current_test = None
