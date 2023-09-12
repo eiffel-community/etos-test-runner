@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -78,7 +78,7 @@ class ETR:
         os.environ["RABBITMQ_PASSWORD"] = "*********"
 
         self.etos.start_publisher()
-        self.tests_url = os.getenv("SUB_SUITE_URL")
+        self.environment_id = os.getenv("ENVIRONMENT_ID")
 
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
 
@@ -87,9 +87,13 @@ class ETR:
         """Catch sigterm."""
         raise Exception("ETR has been terminated.")  # pylint:disable=broad-exception-raised
 
-    def download_and_load(self):
-        """Download and load test json."""
-        generator = self.etos.http.wait_for_request(self.tests_url, as_json=False)
+    def download_and_load(self, sub_suite_url):
+        """Download and load test json.
+
+        :param sub_suite_url: URL to where the sub suite information exists.
+        :type sub_suite_url: str
+        """
+        generator = self.etos.http.wait_for_request(sub_suite_url, as_json=False)
         for response in generator:
             json_config = response.json(object_pairs_hook=OrderedDict)
             break
@@ -138,6 +142,41 @@ class ETR:
             plugins.append(module.ETRPlugin(self.etos))
         self.etos.config.set("plugins", plugins)
 
+    def get_sub_suite_url(self, environment_id):
+        """Get sub suite from ETOS environment defined event.
+
+        :param environment_id: ID of th environment defined event.
+        :type environment_id: str
+        :return: URL for sub suite.
+        :rtype: str
+        """
+        query = (
+            """
+        {
+          environmentDefined(search: "{'meta.id': '%s'}") {
+            edges {
+              node {
+                uri
+              }
+            }
+          }
+        }
+        """
+            % environment_id
+        )
+        wait_generator = self.etos.utils.wait(self.etos.graphql.execute, query=query)
+        for response in wait_generator:
+            if response:
+                try:
+                    _, environment_defined = next(
+                        self.etos.graphql.search_for_nodes(response, "environmentDefined")
+                    )
+                except StopIteration:
+                    return None
+                _LOGGER.info(environment_defined)
+                return environment_defined["data"]["uri"]
+        return None
+
     def run_etr(self):
         """Send activity events and run ETR.
 
@@ -145,7 +184,12 @@ class ETR:
         :rtype: bool
         """
         _LOGGER.info("Starting ETR.")
-        self.download_and_load()
+        sub_suite_url = self.get_sub_suite_url(self.environment_id)
+        if sub_suite_url is None:
+            raise TimeoutError(
+                f"Could not get sub suite environment event with id {self.environment_id!r}"
+            )
+        self.download_and_load(sub_suite_url)
         FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
         self.load_plugins()
         try:

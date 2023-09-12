@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,17 +15,17 @@
 # limitations under the License.
 """Tests full executions."""
 import os
-import json
 import logging
-from collections import OrderedDict
+from functools import partial
 from copy import deepcopy
 from shutil import rmtree
 from contextlib import contextmanager
 from pathlib import Path
 from unittest import TestCase
-from unittest.mock import patch, Mock
 from etos_lib.lib.debug import Debug
 from etos_test_runner.etr import ETR
+from tests.library.fake_server import FakeServer
+from tests.library.handler import Handler
 
 TEST = """#!/bin/bash
 echo ==== test_name_yo ====
@@ -111,36 +111,14 @@ class TestFullExecution(TestCase):
         """Create a debug instance."""
         cls.debug = Debug()
 
-    def _patch_wait_for_request(self):
-        """Patch the ETOS library wait for request method."""
-        patcher = patch("etos_lib.etos.Http.wait_for_request")
-        self.patchers.append(patcher)
-        self.wait_for_request = patcher.start()
-        self.suite = deepcopy(SUITE)
-        response = Mock()
-        response.json.return_value = json.loads(
-            json.dumps(self.suite), object_pairs_hook=OrderedDict
-        )
-        self.wait_for_request.return_value = [response]
-
-    def _patch_http_request(self):
-        """Patch the ETOS library http request method."""
-        patcher = patch("etos_lib.etos.Http.request")
-        self.patchers.append(patcher)
-        self.http_request = patcher.start()
-        self.http_request.return_value = True
-
     def setUp(self):
-        """Create patch objects and a test folder to execute from."""
-        self.patchers = []
+        """Create a test folder to execute from."""
         self.original = Path.cwd()
         self.root = Path().joinpath("testfolder").absolute()
         if self.root.exists():
             rmtree(self.root)
         self.root.mkdir()
         os.chdir(self.root)
-        self._patch_wait_for_request()
-        self._patch_http_request()
         script = Path.cwd().joinpath("test.sh")
         with open(script, "w", encoding="utf-8") as scriptfile:
             scriptfile.write(TEST)
@@ -149,11 +127,10 @@ class TestFullExecution(TestCase):
             regexfile.write(REGEX)
 
     def tearDown(self):
-        """Clear the test folder and patchers."""
+        """Clear the test folder and handler."""
         os.chdir(self.original)
         rmtree(self.root, ignore_errors=True)
-        for patcher in self.patchers:
-            patcher.stop()
+        Handler.reset()
 
     @staticmethod
     @contextmanager
@@ -220,7 +197,9 @@ class TestFullExecution(TestCase):
             "TEST_REGEX": str(self.regex.absolute()),
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
-        with self.environ(environment):
+        handler = partial(Handler, deepcopy(SUITE))
+        with self.environ(environment), FakeServer(handler) as server:
+            os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             self.logger.info("STEP: Initialize and run ETR.")
             etr = ETR()
             result = etr.run_etr()
