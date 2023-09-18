@@ -173,7 +173,6 @@ class ETR:
                     )
                 except StopIteration:
                     return None
-                _LOGGER.info(environment_defined)
                 return environment_defined["data"]["uri"]
         return None
 
