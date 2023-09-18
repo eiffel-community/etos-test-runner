@@ -156,7 +156,9 @@ class ETR:
           environmentDefined(search: "{'meta.id': '%s'}") {
             edges {
               node {
-                uri
+                data {
+                  uri
+                }
               }
             }
           }
