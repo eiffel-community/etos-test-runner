@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETR executor module."""
-import os
-import shlex
-import logging
-import signal
 import json
+import logging
+import os
 import re
+import shlex
+import signal
 import subprocess
 from pathlib import Path
-from shutil import copy
 from pprint import pprint
+from shutil import copy
 
 BASE = Path(__file__).parent.absolute()
 
@@ -323,7 +323,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
                     output_file.write(line.decode("utf-8"))
 
                 if not wait_output:
-                    signal.alarm(5)
+                    signal.alarm(120)
         except SubprocessReadTimeout:
             pass
         finally:
