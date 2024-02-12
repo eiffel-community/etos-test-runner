@@ -36,6 +36,10 @@ class TestCheckoutTimeout(TimeoutError):
     """Test checkout timeout exception."""
 
 
+class TestCheckoutError(Exception):
+    """Failed to checkout tests."""
+
+
 def _subprocess_signal_handler(signum, frame):  # pylint:disable=unused-argument
     """Raise subprocess read timeout."""
     raise SubprocessReadTimeout("Timeout while reading subprocess stdout.")
@@ -153,7 +157,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             signal.alarm(0)
         if not success:
             pprint(output)
-            raise RuntimeError(f"Could not checkout tests using {test_checkout!r}")
+            raise TestCheckoutError(f"Could not checkout tests using {test_checkout!r}")
 
     def _build_test_command(self):
         """Build up the actual test command based on data from event."""
@@ -371,7 +375,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         if self.test_regex["skipped"].match(line):
             self._finished(current_test, "SKIPPED")
 
-    def execute(self, workspace):
+    def _execute(self, workspace):
         """Execute a test case.
 
         :param workspace: Workspace instance for creating test directories.
@@ -405,3 +409,31 @@ class Executor:  # pylint:disable=too-many-instance-attributes
                     self.parse(line)
             self.result = line
             self.logger.info("Finished with result %r.", self.result)
+
+    def execute(self, workspace, retries=3):
+        """Retry execution of test cases.
+
+        This is just a retry wrapper on test executions, so that certain steps in the test
+        execution loop can be retried should it be prudent to do so.
+
+        :raises RuntimeError: If there was an error that could not be resolved using retries.
+
+        :param workspace: Workspace instance for creating test directories.
+        :type workspace: :obj:`etos_test_runner.lib.workspace.Workspace`
+        :param retries: Number of retries to do in the cases where retries should be done.
+        :type retries: int
+        """
+        exception = None
+        for _ in range(retries):
+            try:
+                self._execute(workspace)
+                return
+            except TestCheckoutError as checkout_error:
+                # Retry
+                exception = checkout_error
+                self.logger.exception(str(exception))
+        if exception is not None:
+            raise exception
+        raise RuntimeError(
+            "Unknown error when executing tests. Please contact your administrators."
+        )

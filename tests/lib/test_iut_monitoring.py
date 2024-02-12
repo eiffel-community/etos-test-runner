@@ -14,13 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """IUT monitoring test module."""
+import logging
 import os
 import sys
-import logging
 import time
 from pathlib import Path
+from shutil import rmtree
 from unittest import TestCase
+
 from etos_lib import ETOS
+
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -46,10 +49,10 @@ class TestIutMonitoring(TestCase):
         """Remove script file."""
         for script in self.files:
             self.logger.debug("Removing %r", script)
-            try:
-                script.unlink()
-            except FileNotFoundError:
-                pass
+            if script.is_dir():
+                rmtree(script, ignore_errors=True)
+            else:
+                script.unlink(missing_ok=True)
         self.config.set("scripts", [])
 
     def _wait_for_file(self, filename, timeout=5):

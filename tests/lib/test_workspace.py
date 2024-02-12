@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Workspace test module."""
-import sys
 import logging
-from shutil import rmtree, unpack_archive
+import sys
 from pathlib import Path
+from shutil import rmtree, unpack_archive
 from unittest import TestCase
 from unittest.mock import Mock
+
 from etos_test_runner.lib.workspace import Workspace
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -41,9 +42,9 @@ class TestWorkspace(TestCase):
             Path.cwd().joinpath("workspace.tar.gz").unlink(missing_ok=True)
         for item in self.items:
             if item.is_dir():
-                rmtree(item)
+                rmtree(item, ignore_errors=True)
             elif item.is_file():
-                item.unlink()
+                item.unlink(missing_ok=True)
         self.workspace = None
 
     def test_init_does_not_create(self):

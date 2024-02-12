@@ -14,15 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests full executions."""
-import os
 import logging
-from functools import partial
-from copy import deepcopy
-from shutil import rmtree
+import os
 from contextlib import contextmanager
+from copy import deepcopy
+from functools import partial
 from pathlib import Path
+from shutil import rmtree
 from unittest import TestCase
+
 from etos_lib.lib.debug import Debug
+
 from etos_test_runner.etr import ETR
 from tests.library.fake_server import FakeServer
 from tests.library.handler import Handler
@@ -101,7 +103,7 @@ class TestLogUpload(TestCase):
         self.original = Path.cwd()
         self.root = Path().joinpath("testfolder").absolute()
         if self.root.exists():
-            rmtree(self.root)
+            rmtree(self.root, ignore_errors=True)
         self.root.mkdir()
         os.chdir(self.root)
 
@@ -261,6 +263,7 @@ class TestLogUpload(TestCase):
         handler = partial(Handler, suite)
         with self.environ(environment), FakeServer(handler) as server:
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
+            suite["log_area"]["upload"]["url"] = f"{server.host}/{{name}}"
             self.logger.info("STEP: Initialize ETR.")
             etr = ETR()
 
@@ -312,6 +315,7 @@ class TestLogUpload(TestCase):
         handler = partial(Handler, suite)
         with self.environ(environment), FakeServer(handler) as server:
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
+            suite["log_area"]["upload"]["url"] = f"{server.host}/{{name}}"
             self.logger.info("STEP: Initialize ETR.")
             etr = ETR()
 

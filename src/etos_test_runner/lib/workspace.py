@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETR workspace module."""
-from os import chdir, environ
 import logging
 from contextlib import contextmanager
-from tempfile import mkdtemp
+from os import chdir, environ
 from pathlib import Path
 from shutil import make_archive
+from tempfile import mkdtemp
 
 
 class Workspace:
@@ -160,6 +160,13 @@ class Workspace:
                 chdir(self.identifiers.get(identifier))
             with self.collect_logs(self.identifiers.get(identifier)):
                 yield self.identifiers.get(identifier)
+        except:  # pylint:disable=bare-except
+            # Should something raise an exception we shall assume that the workspace became dirty
+            # and we remove it from the stored workspaces so that it may not be used again.
+            # We avoid cleaning up the workspace so that it will be saved in the workspace archive
+            # for investigative purposes.
+            del self.identifiers[identifier]
+            raise
         finally:
             self.logger.info("Returning to %r", self.workspace.relative_to(self.top_dir))
             chdir(self.workspace)

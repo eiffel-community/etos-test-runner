@@ -14,15 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests full executions."""
-import os
 import logging
-from functools import partial
-from copy import deepcopy
-from shutil import rmtree
+import os
 from contextlib import contextmanager
+from copy import deepcopy
+from functools import partial
 from pathlib import Path
+from shutil import rmtree
 from unittest import TestCase
+
 from etos_lib.lib.debug import Debug
+
 from etos_test_runner.etr import ETR
 from tests.library.fake_server import FakeServer
 from tests.library.handler import Handler
@@ -197,9 +199,11 @@ class TestFullExecution(TestCase):
             "TEST_REGEX": str(self.regex.absolute()),
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
-        handler = partial(Handler, deepcopy(SUITE))
+        suite = deepcopy(SUITE)
+        handler = partial(Handler, suite)
         with self.environ(environment), FakeServer(handler) as server:
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
+            suite["log_area"]["upload"]["url"] = f"{server.host}/{{name}}"
             self.logger.info("STEP: Initialize and run ETR.")
             etr = ETR()
             result = etr.run_etr()
