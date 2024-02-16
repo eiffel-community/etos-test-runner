@@ -162,9 +162,10 @@ class Workspace:
                 yield self.identifiers.get(identifier)
         except:  # pylint:disable=bare-except
             # Should something raise an exception we shall assume that the workspace became dirty
-            # and we remove it from the stored workspaces so that it may not be used again.
-            # We avoid cleaning up the workspace so that it will be saved in the workspace archive
-            # for investigative purposes.
+            # and we remove it from the workspace cache so that it may not be used in another test.
+            # We do not, however, remove the workspace directory from disk as it may contain
+            # valuable information for debugging. By keeping it on disk it will be archived and sent
+            # back to the client.
             del self.identifiers[identifier]
             raise
         finally:
