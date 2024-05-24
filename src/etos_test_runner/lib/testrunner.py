@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETR test runner module."""
+import json
 import time
 import os
 import logging
@@ -23,6 +24,42 @@ from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.workspace import Workspace
 from etos_test_runner.lib.log_area import LogArea
+
+
+class CustomVerdictMatcher:
+    """Match testframework output against user-defined verdict rules."""
+
+    SUPPORTED_CONDITION_KEYWORDS = [
+        "test_framework_exit_code",
+    ]
+
+    def __init__(self, rules, test_framework_output):
+        """Constructor."""
+        self.rules = rules
+        self.test_framework_output = test_framework_output
+
+        for rule in self.rules:
+            for key in rule["condition"].keys():
+                if key not in self.SUPPORTED_CONDITION_KEYWORDS:
+                    raise ValueError(f"Unsupported condition keyword for test outcome rules: {kw}! "
+                                     f"Supported keywords: {self.SUPPORTED_CONDITION_KEYWORDS}.")
+
+    def _evaluate_rule(self, rule) -> bool:
+        """Evaluate conditions within the given rule."""
+        for kw, expected_value in rule["condition"].items():
+            # logical AND: return False as soon as a false statement is encountered:
+            if kw == "test_framework_exit_code" and "test_framework_exit_code" in self.test_framework_output.keys():
+                if self.test_framework_output["test_framework_exit_code"] != expected_value:
+                    return False
+            # implement more keywords if needed
+        return True
+
+    def evaluate(self) -> dict:
+        """Evaluate the list of given rules and return the first match."""
+        for rule in self.rules:
+            if self._evaluate_rule(rule):
+                return rule
+        return None
 
 
 class TestRunner:
@@ -91,7 +128,7 @@ class TestRunner:
                 host={"name": os.getenv("EXECUTION_SPACE_URL"), "user": "etos"},
             )
 
-    def run_tests(self, workspace):
+    def run_tests(self, workspace) -> tuple[bool, int]:
         """Execute test recipes within a test executor.
 
         :param workspace: Which workspace to execute test suite within.
@@ -106,14 +143,26 @@ class TestRunner:
             with Executor(test, self.iut, self.etos) as executor:
                 self.logger.info("Starting test '%s'", executor.test_name)
                 executor.execute(workspace)
-
                 if not executor.result:
                     result = executor.result
-                self.logger.info("Test finished. Result: %s.", executor.result)
-        return result
+                self.logger.info("Test finished. Result: %s. Test framework exit code: %d", executor.result, executor.returncode)
+        return result, executor.returncode
 
-    def outcome(self, result, executed, description):
+    def outcome(self, result, executed, description, test_framework_exit_code):
         """Get outcome from test execution.
+
+        Example rule definition:
+
+        rules = [
+            {
+                "description": "Test collection error, no artifacts created",
+                "condition": {
+                    "test_framework_exit_code": 4,
+                },
+                "conclusion": "FAILED",
+                "verdict": "FAILED",
+            }
+        ]
 
         :param result: Result of execution.
         :type result: bool
@@ -124,7 +173,24 @@ class TestRunner:
         :return: Outcome of test execution.
         :rtype: dict
         """
-        if executed:
+        verdict_rule_file = os.getenv("VERDICT_RULE_FILE")
+        custom_verdict = None
+        if verdict_rule_file is not None:
+            test_framework_output = {
+                "test_framework_exit_code": test_framework_exit_code,
+            }
+            with open(os.getenv("VERDICT_RULE_FILE"), "r") as inp:
+                rules = json.load(inp)
+            cvm = CustomVerdictMatcher(rules, test_framework_output)
+            custom_verdict = cvm.evaluate()
+        if None not in(verdict_rule_file, custom_verdict):
+            conclusion = custom_verdict["conclusion"]
+            verdict = custom_verdict["verdict"]
+            description = custom_verdict["description"]
+            self.logger.info(
+                "Verdict matches testrunner verdict rule: %s", custom_verdict
+            )
+        elif executed:
             conclusion = "SUCCESSFUL"
             verdict = "PASSED" if result else "FAILED"
             self.logger.info(
@@ -205,12 +271,13 @@ class TestRunner:
         result = True
         description = None
         executed = False
+        test_framework_exit_code = None
         try:
             with Workspace(self.log_area) as workspace:
                 self.logger.info("Start IUT monitoring.")
                 self.iut_monitoring.start_monitoring()
                 self.logger.info("Starting test executor.")
-                result = self.run_tests(workspace)
+                result, test_framework_exit_code = self.run_tests(workspace)
                 executed = True
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
@@ -224,7 +291,7 @@ class TestRunner:
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
             self.logger.info("Figure out test outcome.")
-            outcome = self.outcome(result, executed, description)
+            outcome = self.outcome(result, executed, description, test_framework_exit_code)
             pprint(outcome)
 
             self.logger.info("Send test suite finished event.")
