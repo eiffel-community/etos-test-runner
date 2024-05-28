@@ -19,6 +19,7 @@ import time
 import os
 import logging
 from pprint import pprint
+from typing import Union
 
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.executor import Executor
@@ -27,34 +28,54 @@ from etos_test_runner.lib.log_area import LogArea
 
 
 class CustomVerdictMatcher:
-    """Match testframework output against user-defined verdict rules."""
+    # pylint: disable=too-few-public-methods
+    """Match testframework output against user-defined verdict rules.
+
+    Example rule definition:
+
+    rules = [
+        {
+            "description": "Test collection error, no artifacts created",
+            "condition": {
+                "test_framework_exit_code": 4,
+            },
+            "conclusion": "FAILED",
+            "verdict": "FAILED",
+        }
+    ]
+    """
 
     SUPPORTED_CONDITION_KEYWORDS = [
         "test_framework_exit_code",
     ]
 
-    def __init__(self, rules, test_framework_output):
-        """Constructor."""
+    def __init__(self, rules: list, test_framework_output: dict) -> None:
+        """Create new instance."""
         self.rules = rules
         self.test_framework_output = test_framework_output
 
         for rule in self.rules:
             for key in rule["condition"].keys():
                 if key not in self.SUPPORTED_CONDITION_KEYWORDS:
-                    raise ValueError(f"Unsupported condition keyword for test outcome rules: {kw}! "
-                                     f"Supported keywords: {self.SUPPORTED_CONDITION_KEYWORDS}.")
+                    raise ValueError(
+                        f"Unsupported condition keyword for test outcome rules: {key}! "
+                        f"Supported keywords: {self.SUPPORTED_CONDITION_KEYWORDS}."
+                    )
 
-    def _evaluate_rule(self, rule) -> bool:
+    def _evaluate_rule(self, rule: dict) -> bool:
         """Evaluate conditions within the given rule."""
         for kw, expected_value in rule["condition"].items():
             # logical AND: return False as soon as a false statement is encountered:
-            if kw == "test_framework_exit_code" and "test_framework_exit_code" in self.test_framework_output.keys():
+            if (
+                kw == "test_framework_exit_code"
+                and "test_framework_exit_code" in self.test_framework_output.keys()
+            ):
                 if self.test_framework_output["test_framework_exit_code"] != expected_value:
                     return False
             # implement more keywords if needed
         return True
 
-    def evaluate(self) -> dict:
+    def evaluate(self) -> Union[dict, None]:
         """Evaluate the list of given rules and return the first match."""
         for rule in self.rules:
             if self._evaluate_rule(rule):
@@ -128,7 +149,7 @@ class TestRunner:
                 host={"name": os.getenv("EXECUTION_SPACE_URL"), "user": "etos"},
             )
 
-    def run_tests(self, workspace) -> tuple[bool, int]:
+    def run_tests(self, workspace: Workspace) -> tuple[bool, int]:
         """Execute test recipes within a test executor.
 
         :param workspace: Which workspace to execute test suite within.
@@ -145,24 +166,17 @@ class TestRunner:
                 executor.execute(workspace)
                 if not executor.result:
                     result = executor.result
-                self.logger.info("Test finished. Result: %s. Test framework exit code: %d", executor.result, executor.returncode)
+                self.logger.info(
+                    "Test finished. Result: %s. Test framework exit code: %d",
+                    executor.result,
+                    executor.returncode,
+                )
         return result, executor.returncode
 
-    def outcome(self, result, executed, description, test_framework_exit_code):
+    def outcome(
+        self, result: bool, executed: bool, description: str, test_framework_exit_code: int
+    ) -> dict:
         """Get outcome from test execution.
-
-        Example rule definition:
-
-        rules = [
-            {
-                "description": "Test collection error, no artifacts created",
-                "condition": {
-                    "test_framework_exit_code": 4,
-                },
-                "conclusion": "FAILED",
-                "verdict": "FAILED",
-            }
-        ]
 
         :param result: Result of execution.
         :type result: bool
@@ -179,17 +193,15 @@ class TestRunner:
             test_framework_output = {
                 "test_framework_exit_code": test_framework_exit_code,
             }
-            with open(os.getenv("VERDICT_RULE_FILE"), "r") as inp:
+            with open(os.getenv("VERDICT_RULE_FILE"), "r", encoding="utf-8") as inp:
                 rules = json.load(inp)
             cvm = CustomVerdictMatcher(rules, test_framework_output)
             custom_verdict = cvm.evaluate()
-        if None not in(verdict_rule_file, custom_verdict):
+        if None not in (verdict_rule_file, custom_verdict):
             conclusion = custom_verdict["conclusion"]
             verdict = custom_verdict["verdict"]
             description = custom_verdict["description"]
-            self.logger.info(
-                "Verdict matches testrunner verdict rule: %s", custom_verdict
-            )
+            self.logger.info("Verdict matches testrunner verdict rule: %s", custom_verdict)
         elif executed:
             conclusion = "SUCCESSFUL"
             verdict = "PASSED" if result else "FAILED"

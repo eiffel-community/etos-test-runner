@@ -405,12 +405,21 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
             self.logger.info("Wait for test to finish.")
             # We must consume the iterator here, even if we do not parse the lines.
+            proc = None
+            line = ""
             for proc, line in iterator:
                 if self.test_regex:
                     self.parse(line)
             self.result = line
-            self.returncode = proc.returncode
-            self.logger.info("Finished with result %r, exit code: %d", self.result, self.returncode)
+            if proc is not None:
+                self.returncode = proc.returncode
+                self.logger.info(
+                    "Finished with result %r, exit code: %d",
+                    self.result,
+                    self.returncode,
+                )
+            else:
+                self.logger.info("Finished with result %r", self.result)
 
     def execute(self, workspace, retries=3):
         """Retry execution of test cases.
