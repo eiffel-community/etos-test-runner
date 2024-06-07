@@ -27,8 +27,11 @@ from etos_test_runner.lib.workspace import Workspace
 from etos_test_runner.lib.log_area import LogArea
 from etos_test_runner.lib.verdict import CustomVerdictMatcher
 
+
 class TestRunner:
     """Test runner for ETOS."""
+
+    # pylint: disable=too-many-instance-attributes
 
     logger = logging.getLogger("ETR")
 
@@ -58,8 +61,6 @@ class TestRunner:
             rules = []
 
         self.verdict_matcher = CustomVerdictMatcher(rules)
-        self.test_framework_exit_codes = []
-
 
     def test_suite_started(self):
         """Publish a test suite started event.
@@ -131,7 +132,11 @@ class TestRunner:
         return result, test_framework_exit_codes
 
     def outcome(
-        self, result: bool, executed: bool, description: str, test_framework_exit_codes: list[Union[int, None]]
+        self,
+        result: bool,
+        executed: bool,
+        description: str,
+        test_framework_exit_codes: list[Union[int, None]],
     ) -> dict:
         """Get outcome from test execution.
 
@@ -154,8 +159,10 @@ class TestRunner:
                 verdict = custom_verdict["verdict"]
                 description = custom_verdict["description"]
             except KeyError as err:
-                raise ValueError(f"Malformed entry in the verdict rule file: {custom_verdict}. "
-                                 "Expected attributes: description, condition, conclusion, verdict.") from err
+                raise ValueError(
+                    f"Malformed entry in the verdict rule file: {custom_verdict}. "
+                    "Expected attributes: description, condition, conclusion, verdict."
+                ) from err
             self.logger.info("Verdict matches testrunner verdict rule: %s", custom_verdict)
         elif executed:
             conclusion = "SUCCESSFUL"

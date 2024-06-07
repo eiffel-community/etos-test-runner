@@ -57,12 +57,13 @@ class CustomVerdictMatcher:
     def _evaluate_rule(self, rule: dict, test_framework_output: dict) -> bool:
         """Evaluate conditions within the given rule."""
         for kw, expected_value in rule["condition"].items():
-            # If the condition has multiple expressions, they are implicitly joined using logical AND:
-            # i. e. all shall evaluate to True in order for the condition to be True.
+            # If the condition has multiple expressions, they are implicitly
+            # joined using logical AND: i. e. all shall evaluate to True
+            # in order for the condition to be True.
             # False is returned as soon as a false statement is encountered.
             if kw == "test_framework_exit_code":
-                # If the exit code given by the condition is found in the list of produced exit codes,
-                # the rule will evaluate as True.
+                # If the exit code given by the condition is found in
+                # the list of produced exit codes, the rule will evaluate as True.
                 if expected_value not in test_framework_output.get("test_framework_exit_codes"):
                     return False
         return True
@@ -73,4 +74,3 @@ class CustomVerdictMatcher:
             if self._evaluate_rule(rule, test_framework_output):
                 return rule
         return None
-
