@@ -67,7 +67,7 @@ class CustomVerdictMatcher:
                     return False
         return True
 
-    def evaluate(self, , test_framework_output: dict) -> Union[dict, None]:
+    def evaluate(self, test_framework_output: dict) -> Union[dict, None]:
         """Evaluate the list of given rules and return the first match."""
         for rule in self.rules:
             if self._evaluate_rule(rule, test_framework_output):
