@@ -57,19 +57,6 @@ class TestRunner:
         else:
             rules = []
 
-        # debug
-        rules = [
-            {
-                "description": "Test execution interrupted by the user",
-                "condition": {
-                    "test_framework_exit_code": 0
-                },
-                "conclusion": "ABORTED",
-                "verdict": "FAILED"
-            }
-        ]
-        # end debug
-
         self.verdict_matcher = CustomVerdictMatcher(rules)
         self.test_framework_exit_codes = []
 
