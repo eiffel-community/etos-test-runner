@@ -129,15 +129,13 @@ class LogArea:
         :param logs: Logs to upload.
         :type logs: list
         """
-        log_area_folder = (
-            f"{self.etos.config.get('main_suite_id')}/{self.etos.config.get('sub_suite_id')}"
-        )
         for log in logs:
             log["uri"] = self.__upload(
                 self.etos.config.get("context"),
                 log["file"],
                 log["name"],
-                log_area_folder,
+                self.etos.config.get("main_suite_id"),
+                self.etos.config.get("sub_suite_id"),
             )
             self.logs.append(log)
             log["file"].unlink()
@@ -202,7 +200,8 @@ class LogArea:
                 self.etos.config.get("context"),
                 artifact["file"],
                 artifact["name"],
-                log_area_folder,
+                self.etos.config.get("main_suite_id"),
+                self.etos.config.get("sub_suite_id"),
             )
             self.artifacts.append(artifact)
             artifact["file"].unlink()
@@ -211,12 +210,14 @@ class LogArea:
         data = {
             "context": self.etos.config.get("context"),
             "folder": log_area_folder,
+            "sub_suite_id": self.etos.config.get("sub_suite_id"),
+            "main_suite_id": self.etos.config.get("main_suite_id"),
             "name": "",
         }
         published_url = upload["url"].format(**data)
         self._artifact_published(artifact_created, published_url)
 
-    def __upload(self, context, log, name, folder):
+    def __upload(self, context, log, name, main_suite_id, sub_suite_id):
         """Upload log to a storage location.
 
         :param context: Context for the http request.
@@ -225,13 +226,22 @@ class LogArea:
         :type log: str
         :param name: Name of file to upload.
         :type name: str
-        :param folder: Folder to upload to.
-        :type folder: str
+        :param main_suite_id: Main suite ID for folder creation.
+        :type main_suite_id: str
+        :param sub_suite_id: Sub suite ID for folder creation.
+        :type sub_suite_id: str
         :return: URI where log was uploaded to.
         :rtype: str
         """
         upload = deepcopy(self.log_area.get("upload"))
-        data = {"context": context, "name": name, "folder": folder}
+        folder = f"{main_suite_id}/{sub_suite_id}"
+        data = {
+            "context": context,
+            "name": name,
+            "sub_suite_id": sub_suite_id,
+            "main_suite_id": main_suite_id,
+            "folder": folder
+        }
 
         # ETOS Library, for some reason, uses the key 'verb' instead of 'method'
         # for HTTP method.

@@ -19,6 +19,7 @@ import os
 import logging
 from pprint import pprint
 
+from eiffellib.events import EiffelTestSuiteStartedEvent
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.workspace import Workspace
@@ -59,17 +60,20 @@ class TestRunner:
         categories.append(self.iut.identity.name)
         livelogs = self.config.get("log_area", {}).get("livelogs")
 
+        test_suite_started = EiffelTestSuiteStartedEvent()
+        data = {
+            "name": suite_name,
+            "categories": categories,
+            "types": ["FUNCTIONAL"],
+            "liveLogs": [{"name": "console", "uri": livelogs}]
+        }
         # TODO: Remove CONTEXT link here.
-        return self.etos.events.send_test_suite_started(
-            suite_name,
-            links={
-                "CONTEXT": self.etos.config.get("context"),
-                "CAUSE": self.etos.config.get("main_suite_id"),
-            },
-            categories=categories,
-            types=["FUNCTIONAL"],
-            liveLogs=[{"name": "console", "uri": livelogs}],
-        )
+        links={
+            "CONTEXT": self.etos.config.get("context"),
+            "CAUSE": self.etos.config.get("main_suite_id"),
+        }
+        test_suite_started.meta.event_id = self.config.get("sub_suite_id")
+        return self.etos.events.send(test_suite_started, links, data)
 
     def environment(self, context):
         """Send out which environment we're executing within.
