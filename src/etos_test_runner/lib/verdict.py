@@ -1,4 +1,4 @@
-# Copyright Axis Communications AB.
+# Copyright 1Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -40,10 +40,10 @@ class CustomVerdictMatcher:
     """
 
     REQUIRED_RULE_KEYWORDS = {
-            "description",
-            "condition",
-            "conclusion",
-            "verdict",
+        "description",
+        "condition",
+        "conclusion",
+        "verdict",
     }
     SUPPORTED_CONDITION_KEYWORDS = {
         "test_framework_exit_code",
