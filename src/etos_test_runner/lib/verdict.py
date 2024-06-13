@@ -53,10 +53,10 @@ class CustomVerdictMatcher:
         """Create new instance."""
         self.rules = rules
         for rule in self.rules:
-            if rule.keys() != self.REQUIRED_RULE_KEYWORDS:
+            if set(rule.keys()) != self.REQUIRED_RULE_KEYWORDS:
                 raise ValueError(
                     f"Unsupported rule definition: {rule}. "
-                    "Required keywords: {self.REQUIRED_RULE_KEYWORDS}"
+                    f"Required keywords: {self.REQUIRED_RULE_KEYWORDS}"
                 )
             for key in rule["condition"].keys():
                 if key not in self.SUPPORTED_CONDITION_KEYWORDS:
