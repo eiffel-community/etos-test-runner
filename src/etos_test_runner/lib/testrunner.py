@@ -65,10 +65,10 @@ class TestRunner:
             "name": suite_name,
             "categories": categories,
             "types": ["FUNCTIONAL"],
-            "liveLogs": [{"name": "console", "uri": livelogs}]
+            "liveLogs": [{"name": "console", "uri": livelogs}],
         }
         # TODO: Remove CONTEXT link here.
-        links={
+        links = {
             "CONTEXT": self.etos.config.get("context"),
             "CAUSE": self.etos.config.get("main_suite_id"),
         }

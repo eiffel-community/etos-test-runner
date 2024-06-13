@@ -51,6 +51,7 @@ SUITE = {
     "name": "Test ETOS API scenario",
     "priority": 1,
     "test_suite_started_id": "577381ad-8356-4939-ab77-02e7abe06699",
+    "sub_suite_id": "677381ad-8356-4939-ab77-02e7abe06688",
     "recipes": [
         {
             "constraints": [

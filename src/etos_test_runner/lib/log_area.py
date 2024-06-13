@@ -217,7 +217,9 @@ class LogArea:
         published_url = upload["url"].format(**data)
         self._artifact_published(artifact_created, published_url)
 
-    def __upload(self, context, log, name, main_suite_id, sub_suite_id):
+    def __upload(
+        self, context, log, name, main_suite_id, sub_suite_id
+    ):  # pylint:disable=too-many-arguments
         """Upload log to a storage location.
 
         :param context: Context for the http request.
@@ -240,7 +242,7 @@ class LogArea:
             "name": name,
             "sub_suite_id": sub_suite_id,
             "main_suite_id": main_suite_id,
-            "folder": folder
+            "folder": folder,
         }
 
         # ETOS Library, for some reason, uses the key 'verb' instead of 'method'
