@@ -154,15 +154,9 @@ class TestRunner:
         }
         custom_verdict = self.verdict_matcher.evaluate(test_framework_output)
         if custom_verdict is not None:
-            try:
-                conclusion = custom_verdict["conclusion"]
-                verdict = custom_verdict["verdict"]
-                description = custom_verdict["description"]
-            except KeyError as err:
-                raise ValueError(
-                    f"Malformed entry in the verdict rule file: {custom_verdict}. "
-                    "Expected attributes: description, condition, conclusion, verdict."
-                ) from err
+            conclusion = custom_verdict["conclusion"]
+            verdict = custom_verdict["verdict"]
+            description = custom_verdict["description"]
             self.logger.info("Verdict matches testrunner verdict rule: %s", custom_verdict)
         elif executed:
             conclusion = "SUCCESSFUL"

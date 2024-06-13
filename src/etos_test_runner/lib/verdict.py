@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -39,14 +39,25 @@ class CustomVerdictMatcher:
         found in the list exit codes produced by the test framework.
     """
 
-    SUPPORTED_CONDITION_KEYWORDS = [
+    REQUIRED_RULE_KEYWORDS = {
+            "description",
+            "condition",
+            "conclusion",
+            "verdict",
+    }
+    SUPPORTED_CONDITION_KEYWORDS = {
         "test_framework_exit_code",
-    ]
+    }
 
     def __init__(self, rules: list) -> None:
         """Create new instance."""
         self.rules = rules
         for rule in self.rules:
+            if rule.keys() != self.REQUIRED_RULE_KEYWORDS:
+                raise ValueError(
+                    f"Unsupported rule definition: {rule}. "
+                    "Required keywords: {self.REQUIRED_RULE_KEYWORDS}"
+                )
             for key in rule["condition"].keys():
                 if key not in self.SUPPORTED_CONDITION_KEYWORDS:
                     raise ValueError(
