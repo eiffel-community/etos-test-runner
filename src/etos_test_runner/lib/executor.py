@@ -99,6 +99,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         self.context = self.etos.config.get("context")
         self.plugins = self.etos.config.get("plugins")
         self.result = True
+        self.returncode = None
 
     def load_regex(self):
         """Attempt to load regex file from environment variables.
@@ -404,11 +405,21 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
             self.logger.info("Wait for test to finish.")
             # We must consume the iterator here, even if we do not parse the lines.
-            for _, line in iterator:
+            proc = None
+            line = ""
+            for proc, line in iterator:
                 if self.test_regex:
                     self.parse(line)
             self.result = line
-            self.logger.info("Finished with result %r.", self.result)
+            if proc is not None:
+                self.returncode = proc.returncode
+                self.logger.info(
+                    "Finished with result %r, exit code: %d",
+                    self.result,
+                    self.returncode,
+                )
+            else:
+                self.logger.info("Finished with result %r", self.result)
 
     def execute(self, workspace, retries=3):
         """Retry execution of test cases.

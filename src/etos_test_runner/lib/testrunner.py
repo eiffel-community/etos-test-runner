@@ -14,20 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETR test runner module."""
+import json
 import time
 import os
 import logging
 from pprint import pprint
+from typing import Union
 
 from eiffellib.events import EiffelTestSuiteStartedEvent
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.workspace import Workspace
 from etos_test_runner.lib.log_area import LogArea
+from etos_test_runner.lib.verdict import CustomVerdictMatcher
 
 
 class TestRunner:
     """Test runner for ETOS."""
+
+    # pylint: disable=too-many-instance-attributes
 
     logger = logging.getLogger("ETR")
 
@@ -48,6 +53,15 @@ class TestRunner:
         self.issuer = {"name": "ETOS Test Runner"}
         self.etos.config.set("iut", self.iut)
         self.plugins = self.etos.config.get("plugins")
+
+        verdict_rule_file = os.getenv("VERDICT_RULE_FILE")
+        if verdict_rule_file is not None:
+            with open(verdict_rule_file, "r", encoding="utf-8") as inp:
+                rules = json.load(inp)
+        else:
+            rules = []
+
+        self.verdict_matcher = CustomVerdictMatcher(rules)
 
     def test_suite_started(self):
         """Publish a test suite started event.
@@ -95,7 +109,7 @@ class TestRunner:
                 host={"name": os.getenv("EXECUTION_SPACE_URL"), "user": "etos"},
             )
 
-    def run_tests(self, workspace):
+    def run_tests(self, workspace: Workspace) -> tuple[bool, list[Union[int, None]]]:
         """Execute test recipes within a test executor.
 
         :param workspace: Which workspace to execute test suite within.
@@ -105,18 +119,29 @@ class TestRunner:
         """
         recipes = self.config.get("recipes")
         result = True
+        test_framework_exit_codes = []
         for num, test in enumerate(recipes):
             self.logger.info("Executing test %s/%s", num + 1, len(recipes))
             with Executor(test, self.iut, self.etos) as executor:
                 self.logger.info("Starting test '%s'", executor.test_name)
                 executor.execute(workspace)
-
                 if not executor.result:
                     result = executor.result
-                self.logger.info("Test finished. Result: %s.", executor.result)
-        return result
+                self.logger.info(
+                    "Test finished. Result: %s. Test framework exit code: %d",
+                    executor.result,
+                    executor.returncode,
+                )
+                test_framework_exit_codes.append(executor.returncode)
+        return result, test_framework_exit_codes
 
-    def outcome(self, result, executed, description):
+    def outcome(
+        self,
+        result: bool,
+        executed: bool,
+        description: str,
+        test_framework_exit_codes: list[Union[int, None]],
+    ) -> dict:
         """Get outcome from test execution.
 
         :param result: Result of execution.
@@ -128,7 +153,16 @@ class TestRunner:
         :return: Outcome of test execution.
         :rtype: dict
         """
-        if executed:
+        test_framework_output = {
+            "test_framework_exit_codes": test_framework_exit_codes,
+        }
+        custom_verdict = self.verdict_matcher.evaluate(test_framework_output)
+        if custom_verdict is not None:
+            conclusion = custom_verdict["conclusion"]
+            verdict = custom_verdict["verdict"]
+            description = custom_verdict["description"]
+            self.logger.info("Verdict matches testrunner verdict rule: %s", custom_verdict)
+        elif executed:
             conclusion = "SUCCESSFUL"
             verdict = "PASSED" if result else "FAILED"
             self.logger.info(
@@ -209,12 +243,13 @@ class TestRunner:
         result = True
         description = None
         executed = False
+        test_framework_exit_codes = []
         try:
             with Workspace(self.log_area) as workspace:
                 self.logger.info("Start IUT monitoring.")
                 self.iut_monitoring.start_monitoring()
                 self.logger.info("Starting test executor.")
-                result = self.run_tests(workspace)
+                result, test_framework_exit_codes = self.run_tests(workspace)
                 executed = True
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
@@ -228,7 +263,7 @@ class TestRunner:
                 self.logger.info("Stop IUT monitoring.")
                 self.iut_monitoring.stop_monitoring()
             self.logger.info("Figure out test outcome.")
-            outcome = self.outcome(result, executed, description)
+            outcome = self.outcome(result, executed, description, test_framework_exit_codes)
             pprint(outcome)
 
             self.logger.info("Send test suite finished event.")
