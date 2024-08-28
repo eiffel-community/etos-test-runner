@@ -93,10 +93,8 @@ class ETR:
         :param sub_suite_url: URL to where the sub suite information exists.
         :type sub_suite_url: str
         """
-        generator = self.etos.http.wait_for_request(sub_suite_url, as_json=False)
-        for response in generator:
-            json_config = response.json(object_pairs_hook=OrderedDict)
-            break
+        response = self.etos.http.get(sub_suite_url)
+        json_config = response.json(object_pairs_hook=OrderedDict)
         dataset = CustomDataset()
         dataset.add("decrypt", Decrypt)
         config = JsonTas(dataset).run(json_config)

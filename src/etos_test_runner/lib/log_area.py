@@ -305,7 +305,12 @@ class LogArea:
                 # Seek back to the start of the file so that the uploaded file
                 # is not 0 bytes in size.
                 log_file.seek(0)
-                yield self.etos.http.request(verb, url, as_json, data=log_file, **requests_kwargs)
+                request = getattr(self.etos.http, verb.lower())
+                response = request(url, data=log_file, **requests_kwargs).json()
+                if as_json:
+                    yield response.json()
+                else:
+                    yield response
                 break
             except (
                 ConnectionError,
