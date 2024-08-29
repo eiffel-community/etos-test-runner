@@ -306,7 +306,7 @@ class LogArea:
                 # is not 0 bytes in size.
                 log_file.seek(0)
                 request = getattr(self.etos.http, verb.lower())
-                response = request(url, data=log_file, **requests_kwargs).json()
+                response = request(url, data=log_file, **requests_kwargs)
                 if as_json:
                     yield response.json()
                 else:
