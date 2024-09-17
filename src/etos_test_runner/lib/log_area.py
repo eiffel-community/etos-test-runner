@@ -312,7 +312,7 @@ class LogArea:
         :param url: URL to retry upload request
         :type url: str
         :param file_contents: File contents to upload
-        :type file_contents: str
+        :type file_contents: bytes
         :param timeout: How long, in seconds, to retry request.
         :type timeout: int or None
         :param as_json: Whether or not to return json instead of response.
