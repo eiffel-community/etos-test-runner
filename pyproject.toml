@@ -60,3 +60,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.package-data]
 "*" = ["*.sh"]
+
+[tool.setuptools_scm] 
+root = "../.."
