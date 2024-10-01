@@ -60,7 +60,3 @@ testpaths = ["tests"]
 
 [tool.setuptools.package-data]
 "*" = ["*.sh"]
-
-[tool.setuptools_scm]
-version_scheme = "setup:version_scheme"
-local_scheme = "setup:local_scheme"
