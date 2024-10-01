@@ -249,7 +249,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
     def _call(
         self, cmd, shell=False, env=None, executable=None, output=None, wait_output=True
-    ):  # pylint:disable=too-many-positional-arguments
+    ):  # pylint:disable=too-many-positional-arguments,too-many-arguments
         """Call a system command.
 
         :param cmd: Command to run.
@@ -280,7 +280,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
     def _iterable_call(
         self, cmd, shell=False, env=None, executable=None, output=None, wait_output=True
-    ):  # pylint:disable=too-many-positional-arguments
+    ):  # pylint:disable=too-many-positional-arguments,too-many-arguments
         """Call a system command and yield the output.
 
         :param cmd: Command to run.
