@@ -244,7 +244,7 @@ class LogArea:
 
     def __upload(
         self, context, log, name, main_suite_id, sub_suite_id
-    ):  # pylint:disable=too-many-arguments
+    ):  # pylint:disable=too-many-positional-arguments
         """Upload log to a storage location.
 
         :param context: Context for the http request.
@@ -303,7 +303,7 @@ class LogArea:
 
     def __retry_upload(
         self, verb, url, file_contents, timeout=None, as_json=True, **requests_kwargs
-    ):  # pylint:disable=too-many-arguments
+    ):  # pylint:disable=too-many-positional-arguments
         """Attempt to connect to url for x time.
 
         :param verb: Which HTTP verb to use. GET, PUT, POST
