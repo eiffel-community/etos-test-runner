@@ -54,7 +54,7 @@ class TestRunner:
         self.etos.config.set("iut", self.iut)
         self.plugins = self.etos.config.get("plugins")
 
-        verdict_rule_file = os.getenv("VERDICT_RULE_FILE")
+        verdict_rule_file = os.getenv("VERDICT_RULES_FILE")
         if verdict_rule_file is not None:
             with open(verdict_rule_file, "r", encoding="utf-8") as inp:
                 rules = json.load(inp)
