@@ -16,25 +16,27 @@
 # limitations under the License.
 # -*- coding: utf-8 -*-
 """ETOS test runner module."""
-import sys
+
+import importlib
 import logging
 import os
-import signal
-import importlib
 import pkgutil
-from typing import Optional, Union
-from pprint import pprint
+import signal
+import sys
 from collections import OrderedDict
+from pprint import pprint
+from typing import Optional, Union
 
 from etos_lib import ETOS
+from etos_lib.lib.http import Http
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
+from urllib3.util import Retry
 
-from etos_test_runner.lib.testrunner import TestRunner
-from etos_test_runner.lib.iut import Iut
 from etos_test_runner.lib.custom_dataset import CustomDataset
 from etos_test_runner.lib.decrypt import Decrypt, decrypt
-
+from etos_test_runner.lib.iut import Iut
+from etos_test_runner.lib.testrunner import TestRunner
 
 # Remove spam from pika.
 logging.getLogger("pika").setLevel(logging.WARNING)
@@ -64,6 +66,7 @@ class ETR:
 
         self.etos.start_publisher()
         self.environment_id = os.getenv("ENVIRONMENT_ID")
+        self.environment_url = os.getenv("ENVIRONMENT_URL")
 
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
 
@@ -77,7 +80,19 @@ class ETR:
 
         :param sub_suite_url: URL to where the sub suite information exists.
         """
-        response = self.etos.http.get(sub_suite_url)
+        codes = [*Retry.RETRY_AFTER_STATUS_CODES, 404]
+        retry = Retry(
+            total=None,
+            read=0,
+            connect=10,  # With 1 as backoff_factor, will retry for 1023s
+            status=10,  # With 1 as backoff_factor, will retry for 1023s
+            backoff_factor=1,
+            other=0,
+            status_forcelist=codes,  # 413, 429, 503
+        )
+        http_client = Http(retry=retry)
+
+        response = http_client.get(sub_suite_url)
         json_config = response.json(object_pairs_hook=OrderedDict)
         dataset = CustomDataset()
         dataset.add("decrypt", Decrypt)
@@ -165,11 +180,13 @@ class ETR:
         :return: Result of testrunner execution.
         """
         _LOGGER.info("Starting ETR.")
-        sub_suite_url = self.get_sub_suite_url(self.environment_id)
+        sub_suite_url = self.environment_url
         if sub_suite_url is None:
-            raise TimeoutError(
-                f"Could not get sub suite environment event with id {self.environment_id!r}"
-            )
+            sub_suite_url = self.get_sub_suite_url(self.environment_id)
+            if sub_suite_url is None:
+                raise TimeoutError(
+                    f"Could not get sub suite environment event with id {self.environment_id!r}"
+                )
         self.download_and_load(sub_suite_url)
         FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
         self.load_plugins()
