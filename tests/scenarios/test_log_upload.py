@@ -44,7 +44,7 @@ SUITE = {
                 {"key": "COMMAND", "value": "exit 0"},
                 {
                     "key": "TEST_RUNNER",
-                    "value": "registry.nordix.org/eiffel/etos-python-test-runner:3.9.0",
+                    "value": "ghcr.io/eiffel-community/etos-python-test-runner:3.9.0",
                 },
                 {"key": "EXECUTE", "value": ["echo 'this is the pre-execution step'"]},
                 {
@@ -60,7 +60,7 @@ SUITE = {
             },
         }
     ],
-    "test_runner": "registry.nordix.org/eiffel/etos-python-test-runner:3.9.0",
+    "test_runner": "ghcr.io/eiffel-community/etos-python-test-runner:3.9.0",
     "iut": {
         "provider_id": "default",
         "identity": "pkg:docker/production/etos/etos-api@1.2.0",
