@@ -88,10 +88,28 @@ class LogArea:
             filename = f"{prepend}{join_character}{filename}"
             self.logger.info("Result: %r", filename)
         if len(filename) + 5 > 255:  # +5 as to be able to prepend counter.
+            max_length = 250
             self.logger.info(
-                "Filename is too long at %r. Reduce size to %r.", len(filename) + 5, 250
+                "Filename is too long at %r. Reduce size to %r.", len(filename) + 5, max_length
             )
-            filename = filename[: 250 - len(path.suffix)] + path.suffix
+            # Split filename into base and extension
+            if "." in filename:
+                base, suffix = filename.rsplit(".", 1)
+            else:
+                base, suffix = filename, ""
+
+            # Remove trailing dots to avoid double dots (e.g., "file..txt")
+            base_clean = base.rstrip(".")
+
+            # Calculate max length for base part
+            # max_length total - extension length - 1 for dot (if extension exists)
+            if suffix:
+                max_base_length = max_length - len(suffix) - 1
+                truncated_base = base_clean[:max_base_length]
+                filename = f"{truncated_base}.{suffix}"
+            else:
+                truncated_base = base_clean[:max_length]
+                filename = truncated_base
             self.logger.info("Result: %r", filename)
         log_names = [item["name"] for item in self.logs + self.artifacts]
         index = 0
