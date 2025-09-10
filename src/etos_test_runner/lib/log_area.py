@@ -132,8 +132,10 @@ class LogArea:
         self.logger.info("Collecting logs/artifacts for %r", test_name or "global")
         for item in path.iterdir():
             if item.is_dir():
+                # Clean the archive name to avoid double dots when make_archive appends .tar.gz
+                archive_name = str(item.relative_to(Path.cwd())).rstrip(".")
                 compressed_item = make_archive(
-                    item.relative_to(Path.cwd()),
+                    archive_name,
                     format="gztar",
                     root_dir=path,
                     base_dir=item.name,
