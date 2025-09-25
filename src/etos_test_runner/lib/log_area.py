@@ -105,10 +105,10 @@ class LogArea:
             # max_length total - extension length - 1 for dot (if extension exists)
             if suffix:
                 max_base_length = max_length - len(suffix) - 1
-                truncated_base = base_clean[:max_base_length]
+                truncated_base = base_clean[:max_base_length].rstrip(".")
                 filename = f"{truncated_base}.{suffix}"
             else:
-                truncated_base = base_clean[:max_length]
+                truncated_base = base_clean[:max_length].rstrip(".")
                 filename = truncated_base
             self.logger.info("Result: %r", filename)
         log_names = [item["name"] for item in self.logs + self.artifacts]
