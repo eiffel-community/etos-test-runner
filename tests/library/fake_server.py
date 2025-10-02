@@ -53,7 +53,7 @@ class FakeServer:
         self.port = self.__free_port()
         self.mock_server = HTTPServer(("localhost", self.port), self.handler)
         self.thread = Thread(target=self.mock_server.serve_forever)
-        self.thread.setDaemon(True)
+        self.thread.daemon = True
         self.thread.start()
         return self
 

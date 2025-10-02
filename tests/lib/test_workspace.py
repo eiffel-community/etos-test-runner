@@ -37,7 +37,7 @@ class TestWorkspace(TestCase):
 
     def tearDown(self):
         """Attempt to delete all created folders and files."""
-        if self.workspace is not None:
+        if self.workspace is not None and self.workspace.workspace is not None:
             rmtree(self.workspace.workspace, ignore_errors=True)
             Path.cwd().joinpath("workspace.tar.gz").unlink(missing_ok=True)
         for item in self.items:
