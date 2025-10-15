@@ -25,7 +25,11 @@ if ! source $DIR/environ.sh ; then
     exit 1
 fi
 
-COMMAND=$1
+# ETR will always add /bin/bash to the command, in order to get the array (${ARGS}) to work
+# below we need to separate both parts of the command (/bin/bash COMMAND) from the args which
+# is why we store both $1 and $2 here and have to shift twice.
+COMMAND="$1 $2"
+shift
 shift
 ARGS=$@
 
@@ -34,4 +38,4 @@ env | sort
 
 echo "Executing:"
 echo $COMMAND $ARGS
-$COMMAND $ARGS
+$COMMAND "${ARGS}"
