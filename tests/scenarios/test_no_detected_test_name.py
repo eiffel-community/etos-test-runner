@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests full executions."""
+
 import logging
 import os
 from contextlib import contextmanager
@@ -96,7 +97,7 @@ SUITE = {
     "log_area": {
         "provider_id": "default",
         "livelogs": "http://localhost/livelogs",
-        "upload": {"url": "http://localhost/logs", "method": "POST"},
+        "upload": {"url": "http://localhost/logs", "method": "PUT", "as_json": False},
         "logs": {},
     },
 }
