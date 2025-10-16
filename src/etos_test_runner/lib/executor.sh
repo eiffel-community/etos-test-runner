@@ -27,11 +27,11 @@ fi
 
 COMMAND=$1
 shift
-ARGS=$@
+ARGS=${@}
 
 echo "Environment used for tests"
 env | sort
 
 echo "Executing:"
 echo $COMMAND $ARGS
-$COMMAND "${ARGS}"
+$COMMAND $ARGS
