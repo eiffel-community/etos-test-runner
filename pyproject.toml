@@ -17,7 +17,7 @@ dependencies = [
     "etos_lib==4.3.6",
     "cryptography>=42.0.4,<43.0.0",
     "packageurl-python==0.9.1",
-    "jsontas==1.4.1",
+    "jsontas>=1.4.1,<2.0.0",
 ]
 
 [options]
