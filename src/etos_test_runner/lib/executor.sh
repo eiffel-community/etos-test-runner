@@ -17,21 +17,21 @@
 eval "$(pyenv init -)"
 pyenv shell --unset
 
-DIR=$(dirname $0)
+DIR="$(dirname "$0")"
 echo "Executing pre-execution script"
-cat $DIR/environ.sh
-if ! source $DIR/environ.sh ; then
+cat "$DIR/environ.sh"
+if ! source "$DIR/environ.sh" ; then
     echo Could not execute pre-execution script.
     exit 1
 fi
 
 COMMAND=$1
 shift
-ARGS=$@
+ARGS=("$@")
 
 echo "Environment used for tests"
 env | sort
 
 echo "Executing:"
-echo $COMMAND $ARGS
-$COMMAND $ARGS
+echo "$COMMAND" "${ARGS[@]}"
+"$COMMAND" "${ARGS[@]}"
