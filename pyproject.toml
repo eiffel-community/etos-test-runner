@@ -44,6 +44,9 @@ Repository = "https://github.com/eiffel-community/etos-test-runner"
 [project.optional-dependencies]
 testing = ["pytest", "pytest-cov"]
 
+[tool.black]
+line-length = 100
+
 [test]
 extras = true
 
