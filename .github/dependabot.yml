@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-name: "etos_lib"
+      - dependency-name: "opentelemetry-*"
     groups:
       etos-lib:
         patterns:
