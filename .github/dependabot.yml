@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Python dependencies - etos_lib
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -9,13 +8,6 @@ updates:
       etos-lib:
         patterns:
           - "etos_lib"
-
-  # Python dependencies - opentelemetry
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    groups:
       opentelemetry:
         patterns:
           - "opentelemetry-*"
