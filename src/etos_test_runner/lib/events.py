@@ -15,6 +15,7 @@
 # limitations under the License.
 # -*- coding: utf-8 -*-
 """ETOS internal message bus module."""
+
 import os
 from etos_lib import ETOS
 from etos_lib.logging.log_publisher import RabbitMQLogPublisher

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """JSONTas decrypt string data structure module."""
+
 import os
 from cryptography.fernet import Fernet
 from jsontas.data_structures.datastructure import DataStructure
