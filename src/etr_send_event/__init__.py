@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Pre-installed ETR event send plugin."""
+
 import os
 from etos_test_runner.plugins.plugin import ETRPlugin as Base
 
