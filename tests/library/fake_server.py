@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS test runner fake server library."""
+
 from threading import Thread
 import socket
 from http.server import HTTPServer

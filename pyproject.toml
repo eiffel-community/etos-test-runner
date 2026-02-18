@@ -14,10 +14,15 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "etos_lib==5.1.4",
+    "etos_lib==5.1.6",
     "cryptography>=42.0.4,<43.0.0",
     "packageurl-python==0.9.1",
-    "jsontas==1.3.0",
+    "jsontas>=1.4.1,<2.0.0",
+    "opentelemetry-api==1.39.1",
+    "opentelemetry-sdk==1.39.1",
+    "opentelemetry-exporter-otlp==1.39.1",
+    "opentelemetry-semantic-conventions==0.60b1",
+    "opentelemetry-instrumentation-logging==0.60b1",
 ]
 
 [options]
@@ -38,6 +43,9 @@ Repository = "https://github.com/eiffel-community/etos-test-runner"
 
 [project.optional-dependencies]
 testing = ["pytest", "pytest-cov"]
+
+[tool.black]
+line-length = 100
 
 [test]
 extras = true
