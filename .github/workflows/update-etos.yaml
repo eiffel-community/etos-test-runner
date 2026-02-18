@@ -55,7 +55,7 @@ jobs:
 
         Release: https://github.com/${{ env.REPOSITORY_OWNER }}/${{ env.ETOS_TEST_RUNNER_REPOSITORY }}/releases/tag/${{ inputs.test-runner-version }}\n
 
-        ${{ inputs.test-runner-release-body }}\n
+        ${{ inputs.test-runner-release-body }}
         sign-commits: true
         branch: "update-etos-test-runner-${{ github.run_id }}"
         labels: automated-pr, dependencies, etos-test-runner
