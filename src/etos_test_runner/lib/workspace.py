@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETR workspace module."""
+
 import logging
 from contextlib import contextmanager
 from os import chdir, environ

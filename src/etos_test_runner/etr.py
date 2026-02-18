@@ -16,6 +16,7 @@
 # limitations under the License.
 # -*- coding: utf-8 -*-
 """ETOS test runner module."""
+
 import sys
 import logging
 import os
@@ -34,7 +35,6 @@ from etos_test_runner.lib.testrunner import TestRunner
 from etos_test_runner.lib.iut import Iut
 from etos_test_runner.lib.custom_dataset import CustomDataset
 from etos_test_runner.lib.decrypt import Decrypt, decrypt
-
 
 # Remove spam from pika.
 logging.getLogger("pika").setLevel(logging.WARNING)
@@ -129,8 +129,7 @@ class ETR:
         :param environment_id: ID of th environment defined event.
         :return: URL for sub suite.
         """
-        query = (
-            """
+        query = """
         {
           environmentDefined(search: "{'meta.id': '%s'}") {
             edges {
@@ -142,9 +141,7 @@ class ETR:
             }
           }
         }
-        """
-            % environment_id
-        )
+        """ % environment_id
         # Timeout can be configured using ETOS_DEFAULT_WAIT_TIMEOUT environment variable
         # Default timeout is 60s.
         wait_generator = self.etos.utils.wait(self.etos.graphql.execute, query=query)

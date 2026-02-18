@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Setup file for etos-test-runner."""
+
 from setuptools import setup
 from setuptools_scm.version import get_local_dirty_tag
 
