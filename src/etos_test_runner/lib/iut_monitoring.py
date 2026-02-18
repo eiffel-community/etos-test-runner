@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """IUT monitoring module."""
+
 import sys
 import os
 import stat
@@ -23,7 +24,6 @@ from signal import SIGINT
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 from etos_lib.lib.config import Config
 from etos_lib.logging.logger import FORMAT_CONFIG
-
 
 ON_POSIX = "posix" in sys.builtin_module_names
 
