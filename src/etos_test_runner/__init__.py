@@ -17,14 +17,16 @@
 
 import os
 import logging
-from importlib.metadata import version as _version, PackageNotFoundError
+from importlib.metadata import version, PackageNotFoundError
+
 from etos_lib.logging.logger import setup_logging
+
 from etos_test_runner.lib.decrypt import decrypt
 
 try:
-    version = _version("etos_test_runner")
+    VERSION = version("etos_test_runner")
 except PackageNotFoundError:
-    version = "Unknown"
+    VERSION = "Unknown"
 
 if os.getenv("ETOS_ENCRYPTION_KEY"):
     os.environ["ETOS_RABBITMQ_PASSWORD"] = decrypt(
@@ -33,7 +35,7 @@ if os.getenv("ETOS_ENCRYPTION_KEY"):
 
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Test Runner", version, ENVIRONMENT)
+setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT)
 
 # JSONTas would print all passwords as they are decrypted,
 # which is not safe, so we disable propagation on the loggers.
