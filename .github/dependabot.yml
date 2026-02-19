@@ -4,13 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    versioning-strategy: increase
     allow:
-      - dependency-name: "etos_lib"
+      - dependency-name: "etos-lib"
       - dependency-name: "opentelemetry-*"
     groups:
       etos-lib:
         patterns:
-          - "etos_lib"
+          - "etos-lib"
       opentelemetry:
         patterns:
           - "opentelemetry-*"
