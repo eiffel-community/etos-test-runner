@@ -5,13 +5,19 @@ on:
     branches: [ "main" ]
     tags: ["*"]
 
+env:
+  MAIN_BRANCH: main
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -89,3 +95,10 @@ jobs:
         gh release upload
         '${{ github.ref_name }}' dist/**
         --repo '${{ github.repository }}'
+  run-update-etos-defaults:
+    needs: [publish-to-pypi]
+    uses: ./.github/workflows/update-etos.yaml
+    secrets: inherit
+    with:
+      test-runner-version: ${{ github.event.release.tag_name }}
+      test-runner-release-body: ${{ github.event.release.body }}
