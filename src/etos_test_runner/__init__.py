@@ -18,7 +18,9 @@
 import os
 import logging
 from importlib.metadata import version, PackageNotFoundError
+
 from etos_lib.logging.logger import setup_logging
+
 from etos_test_runner.lib.decrypt import decrypt
 
 try:
