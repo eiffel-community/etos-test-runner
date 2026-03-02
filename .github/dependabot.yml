@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    versioning-strategy: increase
+    allow:
+      - dependency-name: "etos-lib"
+      - dependency-name: "opentelemetry-*"
+    groups:
+      etos-lib:
+        patterns:
+          - "etos-lib"
+      opentelemetry:
+        patterns:
+          - "opentelemetry-*"
