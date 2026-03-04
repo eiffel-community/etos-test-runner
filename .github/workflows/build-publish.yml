@@ -4,11 +4,6 @@ on:
   release:
     types: [published]
 
-# Permissions are required by the update-etos workflow which inherits them from here.
-permissions:
-  contents: write
-  packages: write
-
 jobs:
   build:
     name: Build distribution
