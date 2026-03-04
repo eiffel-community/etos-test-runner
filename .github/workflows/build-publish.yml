@@ -4,8 +4,7 @@ on:
   release:
     types: [published]
 
-env:
-  MAIN_BRANCH: main
+# Permissions are required by the update-etos which inherits them from here.
 permissions:
   contents: write
   packages: write
