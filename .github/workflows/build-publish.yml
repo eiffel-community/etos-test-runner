@@ -4,7 +4,7 @@ on:
   release:
     types: [published]
 
-# Permissions are required by the update-etos which inherits them from here.
+# Permissions are required by the update-etos workflow which inherits them from here.
 permissions:
   contents: write
   packages: write
