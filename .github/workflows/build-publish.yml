@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -50,3 +50,10 @@ jobs:
         path: dist/
     - name: Publish distribution to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+  run-update-etos-defaults:
+    needs: [publish-to-pypi]
+    uses: ./.github/workflows/update-etos.yaml
+    secrets: inherit
+    with:
+      test-runner-version: ${{ github.event.release.tag_name }}
+      test-runner-release-body: ${{ github.event.release.body }}
