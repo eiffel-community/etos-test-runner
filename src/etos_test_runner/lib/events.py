@@ -88,7 +88,7 @@ class EventPublisher:
             self.identifier,
             Artifact(
                 data=File(
-                    uri=artifact.get("uri"),
+                    url=artifact.get("url"),
                     name=artifact.get("name"),
                     directory=artifact.get("directory"),
                     checksums=artifact.get("checksums", []),
@@ -111,7 +111,7 @@ class EventPublisher:
             self.identifier,
             Report(
                 data=File(
-                    uri=report.get("uri"),
+                    url=report.get("url"),
                     name=report.get("name"),
                     directory=report.get("directory"),
                     checksums=report.get("checksums", []),

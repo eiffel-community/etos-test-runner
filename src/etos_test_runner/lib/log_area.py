@@ -163,16 +163,13 @@ class LogArea:
                 self.etos.config.get("main_suite_id"),
                 self.etos.config.get("sub_suite_id"),
             )
-            event = {
-                "event": "report",
-                "data": {
-                    "url": log["uri"],
-                    "name": log["name"],
-                    "checksums": log["checksums"],
-                },
+            report = {
+                "url": log["uri"],
+                "name": log["name"],
+                "checksums": log["checksums"],
             }
-            self.logger.info("Sending event:      %r", event)
-            self.event_publisher.publish_report(event)
+            self.logger.info("Sending report event:      %r", report)
+            self.event_publisher.publish_report(report)
             self.logs.append(log)
             log["file"].unlink()
 
@@ -240,15 +237,12 @@ class LogArea:
                 self.etos.config.get("sub_suite_id"),
             )
             event = {
-                "event": "artifact",
-                "data": {
-                    "url": artifact["uri"],
-                    "name": artifact["name"],
-                    "directory": self.suite_name,
-                    "checksums": artifact["checksums"],
-                },
+                "url": artifact["uri"],
+                "name": artifact["name"],
+                "directory": self.suite_name,
+                "checksums": artifact["checksums"],
             }
-            self.logger.info("Sending event:      %r", event)
+            self.logger.info("Sending artifact event:      %r", event)
             self.event_publisher.publish_artifact(event)
             self.artifacts.append(artifact)
             artifact["file"].unlink()
