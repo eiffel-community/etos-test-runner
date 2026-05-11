@@ -17,8 +17,12 @@
 """ETOS internal message bus module."""
 
 import os
+
 from etos_lib import ETOS
+from etos_lib.lib.exceptions import PublisherConfigurationMissing
 from etos_lib.logging.log_publisher import RabbitMQLogPublisher
+from etos_lib.messaging.events import Artifact, Report
+from etos_lib.messaging.types import File
 
 
 class EventPublisher:
@@ -30,14 +34,23 @@ class EventPublisher:
         """Set up, but do not start, the RabbitMQ publisher."""
         if os.getenv("DISABLE_EVENT_PUBLISHING", "false").lower() == "true":
             self.disabled = True
-        publisher = etos.config.get("event_publisher")
-        if self.disabled is False and publisher is None:
+        v1_publisher = etos.config.get("event_publisher")
+        if self.disabled is False and v1_publisher is None:
             config = etos.config.etos_rabbitmq_publisher_data()
             # This password should already be decrypted when setting up the logging.
             config["password"] = etos.config.get("etos_rabbitmq_password")
-            publisher = RabbitMQLogPublisher(**config, routing_key=None)
-            etos.config.set("event_publisher", publisher)
-        self.publisher = publisher
+            v1_publisher = RabbitMQLogPublisher(**config, routing_key=None)
+            etos.config.set("event_publisher", v1_publisher)
+        self.v1_publisher = v1_publisher
+
+        v2_publisher = None
+        if self.disabled is False:
+            try:
+                v2_publisher = etos.messagebus_publisher()
+            except PublisherConfigurationMissing:
+                v2_publisher = None
+        self.v2_publisher = v2_publisher
+
         self.identifier = etos.config.get("suite_id")
 
     def __del__(self):
@@ -46,18 +59,62 @@ class EventPublisher:
 
     def close(self):
         """Close the RabbitMQ publisher if it is started."""
-        if self.publisher is not None and self.publisher.is_alive():
-            self.publisher.wait_for_unpublished_events()
-            self.publisher.close()
-            self.publisher.wait_close()
+        if self.v1_publisher is not None and self.v1_publisher.is_alive():
+            self.v1_publisher.wait_for_unpublished_events()
+            self.v1_publisher.close()
+            self.v1_publisher.wait_close()
 
     def publish(self, event: dict):
         """Publish an event to the ETOS internal message bus."""
         if self.disabled:
             return
-        if self.publisher is None:
+
+        # SSEv1
+        if self.v1_publisher is None:
             return
-        if not self.publisher.running:
-            self.publisher.start()
+        if not self.v1_publisher.running:
+            self.v1_publisher.start()
         routing_key = f"{self.identifier}.event.{event.get('event')}"
-        self.publisher.send_event(event, routing_key=routing_key)
+        self.v1_publisher.send_event(event, routing_key=routing_key)
+
+        # SSEv2
+        if event.get("event") == "artifact":
+            self.__publish_artifact(event.get("data", {}))
+        elif event.get("event") == "report":
+            self.__publish_report(event.get("data", {}))
+
+    def __publish_artifact(self, artifact: dict):
+        """Publish an artifact to the ETOS SSEv2 internal message bus."""
+        if not artifact:
+            return
+        if self.v2_publisher is None:
+            return
+        self.v2_publisher.publish(
+            self.identifier,
+            Artifact(
+                data=File(
+                    url=artifact.get("url"),
+                    name=artifact.get("name"),
+                    directory=artifact.get("directory"),
+                    checksums=artifact.get("checksums", []),
+                )
+            ),
+        )
+
+    def __publish_report(self, report: dict):
+        """Publish a report to the ETOS SSEv2 internal message bus."""
+        if not report:
+            return
+        if self.v2_publisher is None:
+            return
+        self.v2_publisher.publish(
+            self.identifier,
+            Report(
+                data=File(
+                    url=report.get("url"),
+                    name=report.get("name"),
+                    directory=report.get("directory"),
+                    checksums=report.get("checksums", []),
+                )
+            ),
+        )
