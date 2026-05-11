@@ -15,18 +15,19 @@
 # limitations under the License.
 """ETR log area handler."""
 
-import logging
-import traceback
 import hashlib
+import logging
 import time
+import traceback
 from copy import deepcopy
+from json.decoder import JSONDecodeError
 from pathlib import Path
 from shutil import make_archive, rmtree
-from json.decoder import JSONDecodeError
 
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from requests.exceptions import HTTPError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+
 from etos_test_runner.lib.events import EventPublisher
 
 
@@ -171,7 +172,7 @@ class LogArea:
                 },
             }
             self.logger.info("Sending event:      %r", event)
-            self.event_publisher.publish(event)
+            self.event_publisher.publish_report(event)
             self.logs.append(log)
             log["file"].unlink()
 
@@ -248,7 +249,7 @@ class LogArea:
                 },
             }
             self.logger.info("Sending event:      %r", event)
-            self.event_publisher.publish(event)
+            self.event_publisher.publish_artifact(event)
             self.artifacts.append(artifact)
             artifact["file"].unlink()
 
