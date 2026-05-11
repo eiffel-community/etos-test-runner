@@ -15,19 +15,18 @@
 # limitations under the License.
 """ETR log area handler."""
 
-import hashlib
 import logging
-import time
 import traceback
+import hashlib
+import time
 from copy import deepcopy
-from json.decoder import JSONDecodeError
 from pathlib import Path
 from shutil import make_archive, rmtree
+from json.decoder import JSONDecodeError
 
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from requests.exceptions import HTTPError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
-
 from etos_test_runner.lib.events import EventPublisher
 
 
@@ -163,13 +162,16 @@ class LogArea:
                 self.etos.config.get("main_suite_id"),
                 self.etos.config.get("sub_suite_id"),
             )
-            report = {
-                "url": log["uri"],
-                "name": log["name"],
-                "checksums": log["checksums"],
+            event = {
+                "event": "report",
+                "data": {
+                    "url": log["uri"],
+                    "name": log["name"],
+                    "checksums": log["checksums"],
+                },
             }
-            self.logger.info("Sending report event:      %r", report)
-            self.event_publisher.publish_report(report)
+            self.logger.info("Sending event:      %r", event)
+            self.event_publisher.publish(event)
             self.logs.append(log)
             log["file"].unlink()
 
@@ -237,13 +239,16 @@ class LogArea:
                 self.etos.config.get("sub_suite_id"),
             )
             event = {
-                "url": artifact["uri"],
-                "name": artifact["name"],
-                "directory": self.suite_name,
-                "checksums": artifact["checksums"],
+                "event": "artifact",
+                "data": {
+                    "url": artifact["uri"],
+                    "name": artifact["name"],
+                    "directory": self.suite_name,
+                    "checksums": artifact["checksums"],
+                },
             }
-            self.logger.info("Sending artifact event:      %r", event)
-            self.event_publisher.publish_artifact(event)
+            self.logger.info("Sending event:      %r", event)
+            self.event_publisher.publish(event)
             self.artifacts.append(artifact)
             artifact["file"].unlink()
 

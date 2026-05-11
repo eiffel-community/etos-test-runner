@@ -64,8 +64,12 @@ class EventPublisher:
             self.v1_publisher.close()
             self.v1_publisher.wait_close()
 
-    def __publish(self, event: dict):
+    def publish(self, event: dict):
         """Publish an event to the ETOS internal message bus."""
+        if self.disabled:
+            return
+
+        # SSEv1
         if self.v1_publisher is None:
             return
         if not self.v1_publisher.running:
@@ -73,15 +77,16 @@ class EventPublisher:
         routing_key = f"{self.identifier}.event.{event.get('event')}"
         self.v1_publisher.send_event(event, routing_key=routing_key)
 
-    def publish_artifact(self, artifact: dict):
-        """Publish an artifact to the ETOS internal message bus."""
-        if self.disabled:
-            return
-
-        # SSEv1
-        self.__publish({"event": "artifact", "data": artifact})
-
         # SSEv2
+        if event.get("event") == "artifact":
+            self.__publish_artifact(event.get("data", {}))
+        elif event.get("event") == "report":
+            self.__publish_report(event.get("data", {}))
+
+    def __publish_artifact(self, artifact: dict):
+        """Publish an artifact to the ETOS SSEv2 internal message bus."""
+        if not artifact:
+            return
         if self.v2_publisher is None:
             return
         self.v2_publisher.publish(
@@ -96,15 +101,10 @@ class EventPublisher:
             ),
         )
 
-    def publish_report(self, report: dict):
-        """Publish a report to the ETOS internal message bus."""
-        if self.disabled:
+    def __publish_report(self, report: dict):
+        """Publish a report to the ETOS SSEv2 internal message bus."""
+        if not report:
             return
-
-        # SSEv1
-        self.__publish({"event": "report", "data": report})
-
-        # SSEv2
         if self.v2_publisher is None:
             return
         self.v2_publisher.publish(
