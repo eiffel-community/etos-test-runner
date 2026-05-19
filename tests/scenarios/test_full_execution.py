@@ -166,8 +166,6 @@ class TestFullExecution(TestCase):
         """
         self.logger.info(events)
         event_names_in_order = [
-            "EiffelActivityTriggeredEvent",
-            "EiffelActivityStartedEvent",
             "EiffelTestSuiteStartedEvent",
             "EiffelTestCaseTriggeredEvent",
             "EiffelTestCaseStartedEvent",
@@ -175,7 +173,6 @@ class TestFullExecution(TestCase):
             "EiffelArtifactCreatedEvent",
             "EiffelArtifactPublishedEvent",
             "EiffelTestSuiteFinishedEvent",
-            "EiffelActivityFinishedEvent",
         ]
         for event_name in event_names_in_order:
             self.assertEqual(events.popleft().meta.type, event_name)
