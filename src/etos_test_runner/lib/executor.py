@@ -142,8 +142,12 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         test_directory_name = Path().absolute().name
         checkout = workspace.joinpath(f"checkout_{test_directory_name}.sh")
         with checkout.open(mode="w", encoding="utf-8") as checkout_file:
-            checkout_file.write('eval "$(pyenv init -)"\n')
-            checkout_file.write("pyenv shell --unset\n")
+            checkout_file.write(
+                'if [ -n "$TEST_FRAMEWORK_VENV" ] && '
+                '[ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then\n'
+                '    source "$TEST_FRAMEWORK_VENV/bin/activate"\n'
+                "fi\n"
+            )
             for command in test_checkout:
                 checkout_file.write(f"{command} || exit 1\n")
 

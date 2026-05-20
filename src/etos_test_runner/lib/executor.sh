@@ -14,8 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-eval "$(pyenv init -)"
-pyenv shell --unset
+
+# Activate test virtual environment if configured.
+# Containers that use a separate virtualenv for test dependencies
+# can set TEST_FRAMEWORK_VENV to that venv path.
+if [ -n "$TEST_FRAMEWORK_VENV" ] && [ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then
+    source "$TEST_FRAMEWORK_VENV/bin/activate"
+fi
 
 DIR="$(dirname "$0")"
 echo "Executing pre-execution script"
