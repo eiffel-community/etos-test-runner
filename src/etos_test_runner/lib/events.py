@@ -96,7 +96,7 @@ class EventPublisher:
                     url=artifact.get("url"),
                     name=artifact.get("name"),
                     directory=artifact.get("directory"),
-                    checksums=artifact.get("checksums", []),
+                    checksums=artifact.get("checksums", {}),
                 )
             ),
         )
@@ -114,7 +114,7 @@ class EventPublisher:
                     url=report.get("url"),
                     name=report.get("name"),
                     directory=report.get("directory"),
-                    checksums=report.get("checksums", []),
+                    checksums=report.get("checksums", {}),
                 )
             ),
         )
