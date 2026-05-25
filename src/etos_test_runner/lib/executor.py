@@ -146,6 +146,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
                 'if [ -n "$TEST_FRAMEWORK_VENV" ] && '
                 '[ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then\n'
                 '    source "$TEST_FRAMEWORK_VENV/bin/activate"\n'
+                "elif command -v pyenv &>/dev/null; then\n"
+                '    eval "$(pyenv init -)"\n'
+                "    pyenv shell --unset\n"
                 "fi\n"
             )
             for command in test_checkout:

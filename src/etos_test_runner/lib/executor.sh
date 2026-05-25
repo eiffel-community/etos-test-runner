@@ -18,8 +18,12 @@
 # Activate test virtual environment if configured.
 # Containers that use a separate virtualenv for test dependencies
 # can set TEST_FRAMEWORK_VENV to that venv path.
+# Falls back to pyenv for backward compatibility with older base images.
 if [ -n "$TEST_FRAMEWORK_VENV" ] && [ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then
     source "$TEST_FRAMEWORK_VENV/bin/activate"
+elif command -v pyenv &>/dev/null; then
+    eval "$(pyenv init -)"
+    pyenv shell --unset
 fi
 
 DIR="$(dirname "$0")"
