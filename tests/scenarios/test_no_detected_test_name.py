@@ -173,6 +173,7 @@ class TestFullExecution(TestCase):
             "ETOS_GRAPHQL_SERVER": "http://localhost/graphql",
             "SUB_SUITE_URL": "http://localhost/download_suite",
             "TEST_REGEX": str(self.regex.absolute()),
+            "ENVIRONMENT_ID": "12345678-1234-5678-1234-567812345678",
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
         suite = deepcopy(SUITE)

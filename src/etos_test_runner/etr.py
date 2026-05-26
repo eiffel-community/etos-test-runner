@@ -175,20 +175,18 @@ class ETR:
         :return: Result of testrunner execution.
         """
         event_publisher = EventPublisher(self.etos)
-        if event_publisher.v2_publisher is not None:
-            _LOGGER.info("Publishing status event: ETOS Test Runner is starting.")
-            event_publisher.v2_publisher.publish(
-                self.etos.config.get("suite_id"),
-                Status(
-                    data=ServiceStatus(
-                        name="test-runner",
-                        instance=self.environment_id,
-                        version=VERSION,
-                        status=ServiceHealth.OK,
-                        message="ETOS Test Runner is starting.",
-                    )
-                ),
-            )
+        _LOGGER.info("Publishing status event: ETOS Test Runner is starting.")
+        event_publisher.publish_v2(
+            Status(
+                data=ServiceStatus(
+                    name="test-runner",
+                    instance=self.environment_id,
+                    version=VERSION,
+                    status=ServiceHealth.OK,
+                    message="ETOS Test Runner is starting.",
+                )
+            ),
+        )
         try:
             _LOGGER.info("Starting ETR.")
             sub_suite_url = self.environment_url
@@ -205,20 +203,18 @@ class ETR:
             test_runner = TestRunner(iut, self.etos)
         except Exception as exception:  # pylint:disable=broad-except
             _LOGGER.exception("ETR failed to start.")
-            if event_publisher.v2_publisher is not None:
-                _LOGGER.info("Publishing status event: ETOS Test Runner failed to start.")
-                event_publisher.v2_publisher.publish(
-                    self.etos.config.get("suite_id"),
-                    Status(
-                        data=ServiceStatus(
-                            name="test-runner",
-                            instance=self.environment_id,
-                            version=VERSION,
-                            status=ServiceHealth.ERROR,
-                            message=f"ETOS Test Runner failed to download sub suite: {exception}",
-                        )
-                    ),
-                )
+            _LOGGER.info("Publishing status event: ETOS Test Runner failed to start.")
+            event_publisher.publish_v2(
+                Status(
+                    data=ServiceStatus(
+                        name="test-runner",
+                        instance=self.environment_id,
+                        version=VERSION,
+                        status=ServiceHealth.ERROR,
+                        message=f"ETOS Test Runner failed to download sub suite: {exception}",
+                    )
+                ),
+            )
             raise
         # test_runner.execute() will publish TestSuiteStarted and TestSuiteFinished events to manage
         # if there are any failures, no need for status events after this point.

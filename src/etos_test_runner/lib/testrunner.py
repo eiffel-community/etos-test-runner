@@ -321,6 +321,11 @@ class TestRunner:
                     "Sending test suite started event in order to finish properly.",
                 )
                 test_suite_started = self.test_suite_started()
+                self._outcome = {
+                    "verdict": "INCONCLUSIVE",
+                    "conclusion": "FAILED",
+                    "description": "Test suite did not start successfully.",
+                }
             self.logger.info(
                 "Log area upload finished. Total uploaded: %d (%d log(s), %d artifact(s))",
                 len(self.log_area.logs) + len(self.log_area.artifacts),
