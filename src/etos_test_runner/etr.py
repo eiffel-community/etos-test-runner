@@ -87,6 +87,8 @@ class ETR:
 
         :param sub_suite_url: URL to where the sub suite information exists.
         """
+        # We also wait for 500 here even though it should not be retryable because of how the ETOS
+        # API tends to work.
         codes = [*Retry.RETRY_AFTER_STATUS_CODES, 404, 500]
         retry = Retry(
             total=None,
