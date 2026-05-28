@@ -24,19 +24,25 @@ import pkgutil
 import signal
 import sys
 from collections import OrderedDict
+from importlib.metadata import version
 from pprint import pprint
 from typing import Optional, Union
 
 from etos_lib import ETOS
 from etos_lib.lib.http import Http
 from etos_lib.logging.logger import FORMAT_CONFIG
+from etos_lib.messaging.events import Status
+from etos_lib.messaging.types import ServiceHealth, ServiceStatus
 from jsontas.jsontas import JsonTas
 from urllib3.util import Retry
 
 from etos_test_runner.lib.custom_dataset import CustomDataset
 from etos_test_runner.lib.decrypt import Decrypt, decrypt
+from etos_test_runner.lib.events import EventPublisher
 from etos_test_runner.lib.iut import Iut
 from etos_test_runner.lib.testrunner import TestRunner
+
+VERSION = version("etos_test_runner")
 
 # Remove spam from pika.
 logging.getLogger("pika").setLevel(logging.WARNING)
@@ -59,6 +65,7 @@ class ETR:
 
         self.etos.config.rabbitmq_publisher_from_environment()
         self.etos.config.set("etos_rabbitmq_password", os.environ.get("ETOS_RABBITMQ_PASSWORD"))
+        self.etos.config.set("suite_id", os.getenv("SUITE_ID"))
         # ETR will print the entire environment just before executing.
         # Hide the password.
         os.environ["RABBITMQ_PASSWORD"] = "*********"
@@ -80,15 +87,17 @@ class ETR:
 
         :param sub_suite_url: URL to where the sub suite information exists.
         """
-        codes = [*Retry.RETRY_AFTER_STATUS_CODES, 404]
+        # We also wait for 500 here even though it should not be retryable because of how the ETOS
+        # API tends to work.
+        codes = [*Retry.RETRY_AFTER_STATUS_CODES, 404, 500]
         retry = Retry(
             total=None,
-            read=0,
+            read=10,
             connect=10,  # With 1 as backoff_factor, will retry for 1023s
             status=10,  # With 1 as backoff_factor, will retry for 1023s
             backoff_factor=1,
             other=0,
-            status_forcelist=codes,  # 413, 429, 503
+            status_forcelist=codes,  # 413, 429, 503, 404, 500
         )
         http_client = Http(retry=retry)
 
@@ -108,15 +117,6 @@ class ETR:
         self.etos.config.set("artifact", config.get("artifact"))
         self.etos.config.set("main_suite_id", config.get("test_suite_started_id"))
         self.etos.config.set("suite_id", config.get("suite_id"))
-
-    def _run_tests(self) -> Union[int, dict]:
-        """Run tests in ETOS test runner.
-
-        :return: Results of test runner execution.
-        """
-        iut = Iut(self.etos.config.get("test_config").get("iut"))
-        test_runner = TestRunner(iut, self.etos)
-        return test_runner.execute()
 
     def load_plugins(self) -> None:
         """Load plugins from environment using the name etr_."""
@@ -176,28 +176,51 @@ class ETR:
 
         :return: Result of testrunner execution.
         """
-        _LOGGER.info("Starting ETR.")
-        sub_suite_url = self.environment_url
-        if sub_suite_url is None:
-            sub_suite_url = self.get_sub_suite_url(self.environment_id)
-            if sub_suite_url is None:
-                raise TimeoutError(
-                    f"Could not get sub suite environment event with id {self.environment_id!r}"
+        event_publisher = EventPublisher(self.etos)
+        _LOGGER.info("Publishing status event: ETOS Test Runner is starting.")
+        event_publisher.publish_v2(
+            Status(
+                data=ServiceStatus(
+                    name="test-runner",
+                    instance=self.environment_id,
+                    version=VERSION,
+                    status=ServiceHealth.OK,
+                    message="ETOS Test Runner is starting.",
                 )
-        self.download_and_load(sub_suite_url)
-        FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
-        self.load_plugins()
+            ),
+        )
         try:
-            activity_name = self.etos.config.get("test_config").get("name")
-            triggered = self.etos.events.send_activity_triggered(activity_name)
-            self.etos.events.send_activity_started(triggered)
-            result = self._run_tests()
-        except Exception as exc:  # pylint:disable=broad-except
-            self.etos.events.send_activity_finished(
-                triggered, {"conclusion": "FAILED", "description": str(exc)}
+            _LOGGER.info("Starting ETR.")
+            sub_suite_url = self.environment_url
+            if sub_suite_url is None:
+                sub_suite_url = self.get_sub_suite_url(self.environment_id)
+                if sub_suite_url is None:
+                    raise TimeoutError(
+                        f"Could not get sub suite environment event with id {self.environment_id!r}"
+                    )
+            self.download_and_load(sub_suite_url)
+            FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
+            self.load_plugins()
+            iut = Iut(self.etos.config.get("test_config").get("iut"))
+            test_runner = TestRunner(iut, self.etos)
+        except Exception as exception:  # pylint:disable=broad-except
+            _LOGGER.exception("ETR failed to start.")
+            _LOGGER.info("Publishing status event: ETOS Test Runner failed to start.")
+            event_publisher.publish_v2(
+                Status(
+                    data=ServiceStatus(
+                        name="test-runner",
+                        instance=self.environment_id,
+                        version=VERSION,
+                        status=ServiceHealth.ERROR,
+                        message=f"ETOS Test Runner failed to download sub suite: {exception}",
+                    )
+                ),
             )
             raise
-        self.etos.events.send_activity_finished(triggered, {"conclusion": "SUCCESSFUL"})
+        # test_runner.execute() will publish TestSuiteStarted and TestSuiteFinished events to manage
+        # if there are any failures, no need for status events after this point.
+        result = test_runner.execute()
         _LOGGER.info("ETR finished.")
         return result
 

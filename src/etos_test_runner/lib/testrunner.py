@@ -16,18 +16,19 @@
 """ETR test runner module."""
 
 import json
-import time
-import os
 import logging
+import os
+import time
 from pprint import pprint
 from typing import Union
 
 from eiffellib.events import EiffelTestSuiteStartedEvent
-from etos_test_runner.lib.iut_monitoring import IutMonitoring
+
 from etos_test_runner.lib.executor import Executor
-from etos_test_runner.lib.workspace import Workspace
+from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.log_area import LogArea
 from etos_test_runner.lib.verdict import CustomVerdictMatcher
+from etos_test_runner.lib.workspace import Workspace
 
 
 class TestRunner:
@@ -268,28 +269,63 @@ class TestRunner:
             self.logger.debug("Call on_test_suite_finished plugin handlers.")
             self._test_suite_finished(self.config.get("name"), self._outcome)
 
-    def execute(self):  # pylint:disable=too-many-branches,disable=too-many-statements
+    def wait_for_events(self):
+        """Wait for the Eiffel publisher to deliver all events."""
+        timeout = time.time() + 600  # 10 minutes
+        self.logger.info("Waiting for eiffel publisher to deliver events (600s).")
+        previous = 0
+        # pylint:disable=protected-access
+        current = len(self.etos.publisher._deliveries)
+        while current:
+            current = len(self.etos.publisher._deliveries)
+            self.logger.info("Remaining events to send        : %d", current)
+            self.logger.info("Events sent since last iteration: %d", previous - current)
+            if time.time() > timeout:
+                if current < previous:
+                    self.logger.info(
+                        "Timeout reached, but events are still being sent. Increase timeout by 10s."
+                    )
+                    timeout = time.time() + 10
+                else:
+                    raise TimeoutError("Eiffel publisher did not deliver all eiffel events.")
+            previous = current
+            time.sleep(1)
+
+    def execute(self):
         """Execute all tests in test suite.
 
         :return: Result of execution. Linux exit code.
         :rtype: int
         """
-        self._test_suite_triggered(self.config.get("name"))
-        self.logger.info("Send test suite started event.")
-        test_suite_started = self.test_suite_started()
-        self._test_suite_started(test_suite_started)
-        sub_suite_id = test_suite_started.meta.event_id
-
-        self.logger.info("Send test environment events.")
-        self.environment(sub_suite_id)
-        self.etos.config.set("sub_suite_id", sub_suite_id)
-
-        self._result = True
-        self._outcome = None
+        test_suite_started = None
         try:
+            self._test_suite_triggered(self.config.get("name"))
+            self.logger.info("Send test suite started event.")
+            test_suite_started = self.test_suite_started()
+            self._test_suite_started(test_suite_started)
+            sub_suite_id = test_suite_started.meta.event_id
+
+            self.logger.info("Send test environment events.")
+            self.environment(sub_suite_id)
+            self.etos.config.set("sub_suite_id", sub_suite_id)
+
+            self._result = True
+            self._outcome = None
+
             with Workspace(self.log_area) as workspace:
                 self._run_and_finalize(workspace)
         finally:
+            if test_suite_started is None:
+                self.logger.warning(
+                    "Test suite did not start successfully. "
+                    "Sending test suite started event in order to finish properly.",
+                )
+                test_suite_started = self.test_suite_started()
+                self._outcome = {
+                    "verdict": "INCONCLUSIVE",
+                    "conclusion": "FAILED",
+                    "description": "Test suite did not start successfully.",
+                }
             self.logger.info(
                 "Log area upload finished. Total uploaded: %d (%d log(s), %d artifact(s))",
                 len(self.log_area.logs) + len(self.log_area.artifacts),
@@ -310,25 +346,6 @@ class TestRunner:
             )
             self.logger.info(test_suite_finished.pretty)
 
-        timeout = time.time() + 600  # 10 minutes
-        self.logger.info("Waiting for eiffel publisher to deliver events (600s).")
-
-        previous = 0
-        # pylint:disable=protected-access
-        current = len(self.etos.publisher._deliveries)
-        while current:
-            current = len(self.etos.publisher._deliveries)
-            self.logger.info("Remaining events to send        : %d", current)
-            self.logger.info("Events sent since last iteration: %d", previous - current)
-            if time.time() > timeout:
-                if current < previous:
-                    self.logger.info(
-                        "Timeout reached, but events are still being sent. Increase timeout by 10s."
-                    )
-                    timeout = time.time() + 10
-                else:
-                    raise TimeoutError("Eiffel publisher did not deliver all eiffel events.")
-            previous = current
-            time.sleep(1)
+        self.wait_for_events()
         self.logger.info("Tests finished executing.")
         return 0 if self._result else self._outcome

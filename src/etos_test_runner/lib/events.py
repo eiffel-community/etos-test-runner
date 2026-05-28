@@ -16,12 +16,13 @@
 # -*- coding: utf-8 -*-
 """ETOS internal message bus module."""
 
+import logging
 import os
 
 from etos_lib import ETOS
 from etos_lib.lib.exceptions import PublisherConfigurationMissing
 from etos_lib.logging.log_publisher import RabbitMQLogPublisher
-from etos_lib.messaging.events import Artifact, Report
+from etos_lib.messaging.events import Artifact, Report, UserEvent
 from etos_lib.messaging.types import File
 
 
@@ -29,9 +30,11 @@ class EventPublisher:
     """EventPublisher helps in sending events to the internal ETOS message bus."""
 
     disabled = False
+    logger = logging.getLogger(__name__)
 
     def __init__(self, etos: ETOS):
         """Set up, but do not start, the RabbitMQ publisher."""
+        self.etos = etos
         if os.getenv("DISABLE_EVENT_PUBLISHING", "false").lower() == "true":
             self.disabled = True
         v1_publisher = etos.config.get("event_publisher")
@@ -51,8 +54,6 @@ class EventPublisher:
                 v2_publisher = None
         self.v2_publisher = v2_publisher
 
-        self.identifier = etos.config.get("suite_id")
-
     def __del__(self):
         """Close the RabbitMQ publisher."""
         self.close()
@@ -68,13 +69,17 @@ class EventPublisher:
         """Publish an event to the ETOS internal message bus."""
         if self.disabled:
             return
+        identifier = self.etos.config.get("suite_id")
+        if identifier is None:
+            self.logger.warning("Cannot publish event without suite_id in configuration.")
+            return
 
         # SSEv1
         if self.v1_publisher is None:
             return
         if not self.v1_publisher.running:
             self.v1_publisher.start()
-        routing_key = f"{self.identifier}.event.{event.get('event')}"
+        routing_key = f"{identifier}.event.{event.get('event')}"
         self.v1_publisher.send_event(event, routing_key=routing_key)
 
         # SSEv2
@@ -83,14 +88,25 @@ class EventPublisher:
         elif event.get("event") == "report":
             self.__publish_report(event.get("data", {}))
 
+    def publish_v2(self, event: UserEvent):
+        """Publish an event to the ETOS internal message bus using SSEv2."""
+        if self.disabled:
+            self.logger.info("Event publishing is disabled. Skipping publishing event")
+            return
+        if self.v2_publisher is None:
+            self.logger.warning("SSEv2 publisher is not configured. Cannot publish event.")
+            return
+        identifier = self.etos.config.get("suite_id")
+        if identifier is None:
+            self.logger.warning("Cannot publish event without suite_id in configuration.")
+            return
+        self.v2_publisher.publish(identifier, event)
+
     def __publish_artifact(self, artifact: dict):
         """Publish an artifact to the ETOS SSEv2 internal message bus."""
         if not artifact:
             return
-        if self.v2_publisher is None:
-            return
-        self.v2_publisher.publish(
-            self.identifier,
+        self.publish_v2(
             Artifact(
                 data=File(
                     url=artifact.get("url"),
@@ -98,17 +114,14 @@ class EventPublisher:
                     directory=artifact.get("directory"),
                     checksums=artifact.get("checksums", {}),
                 )
-            ),
+            )
         )
 
     def __publish_report(self, report: dict):
         """Publish a report to the ETOS SSEv2 internal message bus."""
         if not report:
             return
-        if self.v2_publisher is None:
-            return
-        self.v2_publisher.publish(
-            self.identifier,
+        self.publish_v2(
             Report(
                 data=File(
                     url=report.get("url"),
@@ -116,5 +129,5 @@ class EventPublisher:
                     directory=report.get("directory"),
                     checksums=report.get("checksums", {}),
                 )
-            ),
+            )
         )

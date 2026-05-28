@@ -166,8 +166,6 @@ class TestFullExecution(TestCase):
         """
         self.logger.info(events)
         event_names_in_order = [
-            "EiffelActivityTriggeredEvent",
-            "EiffelActivityStartedEvent",
             "EiffelTestSuiteStartedEvent",
             "EiffelTestCaseTriggeredEvent",
             "EiffelTestCaseStartedEvent",
@@ -175,7 +173,6 @@ class TestFullExecution(TestCase):
             "EiffelArtifactCreatedEvent",
             "EiffelArtifactPublishedEvent",
             "EiffelTestSuiteFinishedEvent",
-            "EiffelActivityFinishedEvent",
         ]
         for event_name in event_names_in_order:
             self.assertEqual(events.popleft().meta.type, event_name)
@@ -199,6 +196,7 @@ class TestFullExecution(TestCase):
             "ETOS_DISABLE_RECEIVING_EVENTS": "1",
             "ETOS_GRAPHQL_SERVER": "http://localhost/graphql",
             "SUB_SUITE_URL": "http://localhost/download_suite",
+            "ENVIRONMENT_ID": "12345678-1234-5678-1234-567812345678",
             "TEST_REGEX": str(self.regex.absolute()),
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
