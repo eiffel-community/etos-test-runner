@@ -36,8 +36,6 @@ class TestRunner:
 
     # pylint: disable=too-many-instance-attributes
 
-    logger = logging.getLogger("ETR")
-
     def __init__(self, iut, etos):
         """Initialize.
 
@@ -49,6 +47,7 @@ class TestRunner:
         self.etos = etos
         self.iut = iut
         self.config = self.etos.config.get("test_config")
+        self.logger = logging.getLogger(f"ETR - {self.config.get('name')}")
 
         self.log_area = LogArea(self.etos)
         self.iut_monitoring = IutMonitoring(self.iut, self.etos)
@@ -127,14 +126,16 @@ class TestRunner:
         for num, test in enumerate(recipes):
             self.logger.info("Executing test %s/%s", num + 1, len(recipes))
             with Executor(test, self.iut, self.etos) as executor:
-                self.logger.info("Starting test '%s'", executor.test_name)
+                self.logger.info("Starting test '%s'", executor.test_name, extra={"user_log": True})
                 executor.execute(workspace)
                 if not executor.result:
                     result = executor.result
                 self.logger.info(
-                    "Test finished. Result: %s. Test framework exit code: %d",
+                    "Test '%s' finished. Result: %s. Test framework exit code: %d",
+                    executor.test_name,
                     executor.result,
                     executor.returncode,
+                    extra={"user_log": True},
                 )
                 test_framework_exit_codes.append(executor.returncode)
         return result, test_framework_exit_codes
