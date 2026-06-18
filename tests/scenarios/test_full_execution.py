@@ -26,10 +26,8 @@ from unittest import TestCase
 
 from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
 from etos_lib.kubernetes.schemas.v1beta1.testrun import Execution, Providers
-from etos_lib.kubernetes.schemas.v1beta1.testrun import \
-    TestCase as ETOSTestCase
-from etos_lib.kubernetes.schemas.v1beta1.testrun import (TestEnvironment,
-                                                         TestExecution)
+from etos_lib.kubernetes.schemas.v1beta1.testrun import TestCase as ETOSTestCase
+from etos_lib.kubernetes.schemas.v1beta1.testrun import TestEnvironment, TestExecution
 from etos_lib.lib.debug import Debug
 
 from etos_test_runner.etr import ETR

@@ -30,8 +30,9 @@ from pprint import pprint
 from typing import Optional, Union
 
 from etos_lib import ETOS
-from etos_lib.kubernetes.schemas.v1beta1.environment import \
-    EnvironmentSpec as V1Beta1EnvironmentSpec
+from etos_lib.kubernetes.schemas.v1beta1.environment import (
+    EnvironmentSpec as V1Beta1EnvironmentSpec,
+)
 from etos_lib.lib.http import Http
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.messaging.events import Status
@@ -128,7 +129,8 @@ class ETR:
         if os.getenv("ETOS_ENCRYPTION_KEY"):
             os.environ["ETOS_ENCRYPTION_KEY"] = "*********"
 
-        # test_config kept for backward compatibility with plugins, but should not be used by ETR itself.
+        # test_config kept for backward compatibility with plugins, but should not be used by
+        # ETR itself.
         self.etos.config.set("test_config", config)
 
         self.etos.config.set("suite", suite)
