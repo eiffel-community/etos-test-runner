@@ -24,6 +24,12 @@ from pathlib import Path
 from shutil import rmtree
 from unittest import TestCase
 
+from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
+from etos_lib.kubernetes.schemas.v1beta1.testrun import Execution, Providers
+from etos_lib.kubernetes.schemas.v1beta1.testrun import \
+    TestCase as ETOSTestCase
+from etos_lib.kubernetes.schemas.v1beta1.testrun import (TestEnvironment,
+                                                         TestExecution)
 from etos_lib.lib.debug import Debug
 
 from etos_test_runner.etr import ETR
@@ -49,11 +55,12 @@ REGEX = """{
 }
 """
 
-SUITE = {
+V0_SUITE = {
     "name": "Test ETOS API scenario",
     "priority": 1,
     "test_suite_started_id": "577381ad-8356-4939-ab77-02e7abe06699",
     "sub_suite_id": "677381ad-8356-4939-ab77-02e7abe06688",
+    "suite_id": "439b201b-8759-4146-8e58-6704ecca6b9a",
     "recipes": [
         {
             "constraints": [
@@ -102,6 +109,61 @@ SUITE = {
         "logs": {},
     },
 }
+
+V1_SUITE = EnvironmentSpec(
+    name="Test ETOS API scenario",
+    id="677381ad-8356-4939-ab77-02e7abe06688",
+    testrunID="439b201b-8759-4146-8e58-6704ecca6b9a",
+    mainSuiteID="577381ad-8356-4939-ab77-02e7abe06699",
+    artifact="e9b0c120-8638-4c73-9b5c-e72226415ae6",
+    context="fde87097-46bd-4916-b69f-48dbbec47936",
+    providers=Providers(
+        iut="default-iut",
+        executionSpace="default-execution-space",
+        logArea="default-log-area",
+    ),
+    dataset={},
+    executor={},
+    iut={
+        "provider_id": "default",
+        "identity": "pkg:docker/production/etos/etos-api@1.2.0",
+        "type": "docker",
+        "namespace": "production/etos",
+        "name": "etos-api",
+        "version": "1.2.0",
+        "qualifiers": {},
+        "subpath": None,
+    },
+    logArea={
+        "provider_id": "default",
+        "livelogs": "http://localhost/livelogs",
+        "upload": {"url": "http://localhost/logs", "method": "PUT", "as_json": False},
+        "logs": {},
+    },
+    testRunner="ghcr.io/eiffel-community/etos-python-test-runner:3.9.0",
+    testExecutions=[
+        TestExecution(
+            id="6e8d29eb-4b05-4f5e-9207-0c94438479c7",
+            testCase=ETOSTestCase(
+                id="ETOS API functests",
+                tracker="Github",
+                url="https://github.com/eiffel-community/etos-api",
+            ),
+            execution=Execution(
+                command="/bin/bash ./test.sh",
+                preExecution=["echo 'this is the pre-execution step'"],
+                checkout=[
+                    "git clone https://github.com/eiffel-community/etos-test-runner.git .",
+                    f"cp {Path().joinpath('testfolder').absolute()}/test.sh .",
+                ],
+            ),
+            environment=TestEnvironment(
+                testRunner="ghcr.io/eiffel-community/etos-python-test-runner:3.9.0",
+                environmentVariables={},
+            ),
+        )
+    ],
+)
 
 
 # pylint:disable=too-many-instance-attributes
@@ -178,8 +240,8 @@ class TestFullExecution(TestCase):
             self.assertEqual(events.popleft().meta.type, event_name)
         self.assertEqual(list(events), [])
 
-    def test_full(self):
-        """Test that a full execution scenario works as expected.
+    def test_full_v0(self):
+        """Test that a full execution scenario using ETOS v0 works as expected.
 
         Approval criteria:
             - It shall be possible to execute a full suite in ETR.
@@ -200,11 +262,49 @@ class TestFullExecution(TestCase):
             "TEST_REGEX": str(self.regex.absolute()),
             "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
         }
-        suite = deepcopy(SUITE)
+        suite = deepcopy(V0_SUITE)
         handler = partial(Handler, suite)
         with self.environ(environment), FakeServer(handler) as server:
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             suite["log_area"]["upload"]["url"] = f"{server.host}/{{name}}"
+            self.logger.info("STEP: Initialize and run ETR.")
+            etr = ETR()
+            result = etr.run_etr()
+
+            self.logger.info("STEP: Verify that events were sent in the correct order.")
+            self.validate_event_name_order(self.debug.events_published.copy())
+
+            self.logger.info("STEP: Verify that ETR returned with status code 0.")
+            # Result is either dictionary with outcome or an exit status code.
+            # Exit status code on success is 0
+            self.assertEqual(result, 0)
+
+    def test_full_v1(self):
+        """Test that a full execution scenario using ETOS v1 works as expected.
+
+        Approval criteria:
+            - It shall be possible to execute a full suite in ETR.
+            - ETR shall send events in the correct order.
+
+        Test steps::
+            1. Initialize and run ETR.
+            2. Verify that events were sent in the correct order.
+            3. Verify that ETR returned with status code 0.
+        """
+        environment = {
+            "ETOS_DISABLE_SENDING_EVENTS": "1",
+            "ETOS_DISABLE_RECEIVING_EVENTS": "1",
+            "ETOS_GRAPHQL_SERVER": "http://localhost/graphql",
+            "SUB_SUITE_URL": "http://localhost/download_suite",
+            "ENVIRONMENT_ID": "12345678-1234-5678-1234-567812345678",
+            "TEST_REGEX": str(self.regex.absolute()),
+            "HOME": self.root,  # There is something weird with tox and HOME. This fixes it.
+        }
+        suite = V1_SUITE.model_dump()
+        handler = partial(Handler, suite)
+        with self.environ(environment), FakeServer(handler) as server:
+            os.environ["ETOS_GRAPHQL_SERVER"] = server.host
+            suite["logArea"]["upload"]["url"] = f"{server.host}/{{name}}"
             self.logger.info("STEP: Initialize and run ETR.")
             etr = ETR()
             result = etr.run_etr()

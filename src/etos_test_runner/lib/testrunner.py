@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -23,6 +23,7 @@ from pprint import pprint
 from typing import Union
 
 from eiffellib.events import EiffelTestSuiteStartedEvent
+from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
 
 from etos_test_runner.lib.executor import Executor
 from etos_test_runner.lib.iut_monitoring import IutMonitoring
@@ -46,8 +47,11 @@ class TestRunner:
         """
         self.etos = etos
         self.iut = iut
-        self.config = self.etos.config.get("test_config")
-        self.logger = logging.getLogger(f"ETR - {self.config.get('name')}")
+        self.suite = self.etos.config.get("suite")
+        assert isinstance(
+            self.suite, EnvironmentSpec
+        ), "Suite config should be of type EnvironmentSpec"
+        self.logger = logging.getLogger(f"ETR - {self.suite.name}")
 
         self.log_area = LogArea(self.etos)
         self.iut_monitoring = IutMonitoring(self.iut, self.etos)
@@ -72,10 +76,10 @@ class TestRunner:
         :return: Reference to test suite started.
         :rtype: :obj:`eiffel.events.base_event.BaseEvent`
         """
-        suite_name = self.config.get("name")
+        suite_name = self.suite.name
         categories = ["Regression test_suite", "Sub suite"]
         categories.append(self.iut.identity.name)
-        livelogs = self.config.get("log_area", {}).get("livelogs")
+        livelogs = self.suite.logArea.get("livelogs")
 
         test_suite_started = EiffelTestSuiteStartedEvent()
         data = {
@@ -89,7 +93,7 @@ class TestRunner:
             "CONTEXT": self.etos.config.get("context"),
             "CAUSE": self.etos.config.get("main_suite_id"),
         }
-        test_suite_started.meta.event_id = self.config.get("sub_suite_id")
+        test_suite_started.meta.event_id = self.suite.id
         return self.etos.events.send(test_suite_started, links, data)
 
     def environment(self, context):
@@ -120,11 +124,10 @@ class TestRunner:
         :return: Result of test execution.
         :rtype: bool
         """
-        recipes = self.config.get("recipes")
         result = True
         test_framework_exit_codes = []
-        for num, test in enumerate(recipes):
-            self.logger.info("Executing test %s/%s", num + 1, len(recipes))
+        for num, test in enumerate(self.suite.testExecutions):
+            self.logger.info("Executing test %s/%s", num + 1, len(self.suite.testExecutions))
             with Executor(test, self.iut, self.etos) as executor:
                 self.logger.info("Starting test '%s'", executor.test_name, extra={"user_log": True})
                 executor.execute(workspace)
@@ -183,7 +186,7 @@ class TestRunner:
                 verdict,
             )
 
-        suite_name = self.config.get("name")
+        suite_name = self.suite.name
         if not description and not result:
             self.logger.info("No description but result is a failure. At least some tests failed.")
             description = f"At least some {suite_name} tests failed."
@@ -268,7 +271,7 @@ class TestRunner:
             )
             pprint(self._outcome)
             self.logger.debug("Call on_test_suite_finished plugin handlers.")
-            self._test_suite_finished(self.config.get("name"), self._outcome)
+            self._test_suite_finished(self.suite.name, self._outcome)
 
     def wait_for_events(self):
         """Wait for the Eiffel publisher to deliver all events."""
@@ -300,7 +303,7 @@ class TestRunner:
         """
         test_suite_started = None
         try:
-            self._test_suite_triggered(self.config.get("name"))
+            self._test_suite_triggered(self.suite.name)
             self.logger.info("Send test suite started event.")
             test_suite_started = self.test_suite_started()
             self._test_suite_started(test_suite_started)
