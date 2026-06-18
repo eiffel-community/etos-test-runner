@@ -53,6 +53,7 @@ SUITE = {
     "priority": 1,
     "test_suite_started_id": "577381ad-8356-4939-ab77-02e7abe06699",
     "sub_suite_id": "677381ad-8356-4939-ab77-02e7abe06688",
+    "suite_id": "439b201b-8759-4146-8e58-6704ecca6b9a",
     "recipes": [
         {
             "constraints": [

@@ -26,6 +26,8 @@ from pathlib import Path
 from pprint import pprint
 from shutil import copy
 
+from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
+
 BASE = Path(__file__).parent.absolute()
 
 
@@ -64,7 +66,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """Initialize.
 
         :param test: Test to execute.
-        :type test: str
+        :type test: :obj:`etos_lib.kubernetes.schemas.v1beta1.testrun.TestExecution`
         :param iut: IUT to execute test on.
         :type iut: :obj:`etr.lib.iut.Iut`
         :param etos: ETOS library instance.
@@ -74,30 +76,16 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         self.test = test
         self.tests = {}
 
-        self.test_environment_variables = {}
-        self.test_command = None
-        self.pre_test_execution = []
-        self.test_command_input_arguments = {}
-        self.checkout_command = []
-
-        self.constraints = test.get("constraints", [])
-        for constraint in self.constraints:
-            if constraint.get("key") == "ENVIRONMENT":
-                self.test_environment_variables = constraint.get("value")
-            elif constraint.get("key") == "COMMAND":
-                self.test_command = constraint.get("value")
-            elif constraint.get("key") == "EXECUTE":
-                self.pre_test_execution = constraint.get("value")
-            elif constraint.get("key") == "PARAMETERS":
-                self.test_command_input_arguments = constraint.get("value")
-            elif constraint.get("key") == "CHECKOUT":
-                self.checkout_command = constraint.get("value")
-
-        self.test_name = test.get("testCase").get("id")
-        self.test_id = test.get("id")
-        self.iut = iut
         self.etos = etos
-        self.context = self.etos.config.get("context")
+        self.suite = self.etos.config.get("suite")
+        assert isinstance(
+            self.suite, EnvironmentSpec
+        ), "Suite config must be of type EnvironmentSpec"
+
+        self.test_name = test.testCase.id
+        self.test_id = test.id
+        self.iut = iut
+        self.context = self.suite.context
         self.plugins = self.etos.config.get("plugins")
         self.result = True
         self.returncode = None
@@ -176,17 +164,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
         self.logger.info("Executor script:\n %s", executor.read_text(encoding="utf-8"))
 
-        test_command = ""
-        parameters = []
-
-        for parameter, value in self.test_command_input_arguments.items():
-            if value == "":
-                parameters.append(parameter)
-            else:
-                parameters.append(f"{parameter}={value}")
-        parameters = " ".join(parameters)
-
-        test_command = f"./{executor} {self.test_command} {parameters} 2>&1"
+        test_command = f"./{executor} {self.test.execution.command} 2>&1"
         return test_command
 
     def __enter__(self):
@@ -221,9 +199,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         environments = [
             f"export {key}={shlex.quote(value)}"
-            for key, value in self.test_environment_variables.items()
+            for key, value in self.test.environment.environmentVariables.items()
         ]
-        return environments + self.pre_test_execution
+        return environments + self.test.execution.preExecution
 
     def _triggered(self, test_name):
         """Call on_test_case_triggered for all ETR plugins.
@@ -392,9 +370,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         line = False
         with workspace.test_directory(
-            " ".join(self.checkout_command),
+            " ".join(self.test.execution.checkout),
             self._checkout_tests,
-            self.checkout_command,
+            self.test.execution.checkout,
             workspace.workspace,
         ) as test_directory:
             self.report_path = test_directory.joinpath(f"logs/{self.report_path}")

@@ -15,18 +15,20 @@
 # limitations under the License.
 """ETR log area handler."""
 
-import logging
-import traceback
 import hashlib
+import logging
 import time
+import traceback
 from copy import deepcopy
+from json.decoder import JSONDecodeError
 from pathlib import Path
 from shutil import make_archive, rmtree
-from json.decoder import JSONDecodeError
 
+from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from requests.exceptions import HTTPError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+
 from etos_test_runner.lib.events import EventPublisher
 
 
@@ -43,9 +45,11 @@ class LogArea:
         """
         self.etos = etos
         self.event_publisher = EventPublisher(etos)
-        self.identifier = self.etos.config.get("suite_id")
-        self.suite_name = self.etos.config.get("test_config").get("name").replace(" ", "-")
-        self.log_area = self.etos.config.get("test_config").get("log_area")
+        suite = self.etos.config.get("suite")
+        assert isinstance(suite, EnvironmentSpec), "Suite must be of type EnvironmentSpec"
+
+        self.suite_name = suite.name.replace(" ", "-")
+        self.log_area = suite.logArea
         self.logs = []
         self.artifacts = []
 
