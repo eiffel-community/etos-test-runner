@@ -88,6 +88,23 @@ class EventPublisher:
         elif event.get("event") == "report":
             self.__publish_report(event.get("data", {}))
 
+        self.__increment_published(event.get("event"))
+
+    def __increment_published(self, event_type: str) -> None:
+        """Count report/artifact events published to the internal message bus.
+
+        The counters are kept on the shared ETOS config so that every publisher in the
+        process (the log area and any plugins) contributes to the same totals. This lets
+        the test runner report a file count that includes artifacts which plugins
+        reference without uploading to the log area.
+        """
+        if event_type not in ("report", "artifact"):
+            return
+        key = f"published_{event_type}_count"
+        # Config is shared across all EventPublisher instances (log area and plugins),
+        # so the totals aggregate every publisher in this run.
+        self.etos.config.set(key, (self.etos.config.get(key) or 0) + 1)
+
     def publish_v2(self, event: UserEvent):
         """Publish an event to the ETOS internal message bus using SSEv2."""
         if self.disabled:
