@@ -327,11 +327,14 @@ class TestRunner:
                     "conclusion": "FAILED",
                     "description": "Test suite did not start successfully.",
                 }
+            published_reports = self.etos.config.get("published_report_count") or 0
+            published_artifacts = self.etos.config.get("published_artifact_count") or 0
             self.logger.info(
-                "Log area upload finished. Total uploaded: %d (%d log(s), %d artifact(s))",
-                len(self.log_area.logs) + len(self.log_area.artifacts),
-                len(self.log_area.logs),
-                len(self.log_area.artifacts),
+                "Log area upload finished. Total files published: "
+                "%d (%d log(s), %d artifact(s))",
+                published_reports + published_artifacts,
+                published_reports,
+                published_artifacts,
                 extra={"user_log": True},
             )
             if self._outcome is None:
