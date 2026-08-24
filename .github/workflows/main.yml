@@ -47,3 +47,29 @@ jobs:
           --user
       - name: Build a binary wheel and a source tarball
         run: python3 -m build
+
+  verify-lock:
+    # Ensure requirements.lock stays consistent with pyproject.toml.
+    name: Verify dependency lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.15"
+      - name: Verify the lock installs on all supported Python versions
+        run: make lock-verify
+      - name: Verify all direct dependencies are pinned in the lock
+        run: |
+          python3 - <<'EOF'
+          import re, sys, tomllib
+          deps = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]
+          def norm(name): return name.strip().lower().replace("_", "-")
+          direct = {norm(re.split(r"[<>=!~;\[ ]", d, 1)[0]) for d in deps}
+          locked = {norm(n) for n in re.findall(r"(?m)^([A-Za-z0-9._-]+)==", open("requirements.lock").read())}
+          missing = sorted(direct - locked)
+          if missing:
+              sys.exit(f"Direct dependencies missing from requirements.lock: {missing}\nRun 'make lock' and commit the result.")
+          print("All direct dependencies are present in requirements.lock.")
+          EOF
