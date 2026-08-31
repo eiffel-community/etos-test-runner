@@ -56,22 +56,17 @@ class ETR:
     context = None
 
     def __init__(self) -> None:
-        """Initialize ETOS library and start eiffel publisher."""
+        """Initialize ETOS library and configure the internal message bus."""
         self.etos = ETOS("ETOS Test Runner", os.getenv("HOSTNAME"), "ETOS Test Runner")
-        if os.getenv("ETOS_ENCRYPTION_KEY"):
-            os.environ["RABBITMQ_PASSWORD"] = decrypt(
-                os.environ["RABBITMQ_PASSWORD"], os.getenv("ETOS_ENCRYPTION_KEY")
-            )
-
-        self.etos.config.rabbitmq_publisher_from_environment()
+        # The internal message bus (ETOS_RABBITMQ_*) is used already before the sub suite
+        # has been downloaded, e.g. for status events, so it is configured from the
+        # environment here. The password is decrypted on import in the package __init__.
         self.etos.config.set("etos_rabbitmq_password", os.environ.get("ETOS_RABBITMQ_PASSWORD"))
         self.etos.config.set("suite_id", os.getenv("SUITE_ID"))
         # ETR will print the entire environment just before executing.
         # Hide the password.
-        os.environ["RABBITMQ_PASSWORD"] = "*********"
         os.environ["ETOS_RABBITMQ_PASSWORD"] = "*********"
 
-        self.etos.start_publisher()
         self.environment_id = os.getenv("ENVIRONMENT_ID")
         self.environment_url = os.getenv("ENVIRONMENT_URL")
 
@@ -81,6 +76,42 @@ class ETR:
     def graceful_shutdown(*_) -> None:
         """Catch sigterm."""
         raise Exception("ETR has been terminated.")  # pylint:disable=broad-exception-raised
+
+    @staticmethod
+    def apply_sub_suite_environment(config: dict) -> None:
+        """Apply environment variables defined in the sub suite executor instructions.
+
+        The execution space provider only passes the instructions the ETR needs before
+        the sub suite is downloaded. The remaining instructions are read from the sub
+        suite executor instructions here. Variables already set in the process
+        environment take precedence over the ones defined in the sub suite.
+
+        :param config: The downloaded sub suite configuration.
+        """
+        instructions = config.get("executor", {}).get("instructions", {})
+        for key, value in instructions.get("environment", {}).items():
+            if value is None:
+                continue
+            os.environ.setdefault(key, str(value))
+
+    def configure_eiffel_publisher(self) -> None:
+        """Configure and start the Eiffel publisher.
+
+        The Eiffel RabbitMQ connection details are provided either directly as environment
+        variables by the execution space provider, or applied from the downloaded sub suite
+        by `apply_sub_suite_environment`. Since the Eiffel publisher is only used while
+        executing tests, i.e. after the sub suite has been downloaded, its configuration is
+        deferred until that point.
+        """
+        if os.getenv("ETOS_ENCRYPTION_KEY") and os.getenv("RABBITMQ_PASSWORD"):
+            os.environ["RABBITMQ_PASSWORD"] = decrypt(
+                os.environ["RABBITMQ_PASSWORD"], os.getenv("ETOS_ENCRYPTION_KEY")
+            )
+        self.etos.config.rabbitmq_publisher_from_environment()
+        # ETR will print the entire environment just before executing.
+        # Hide the password.
+        os.environ["RABBITMQ_PASSWORD"] = "*********"
+        self.etos.start_publisher()
 
     def download_and_load(self, sub_suite_url: str) -> None:
         """Download and load test json.
@@ -106,6 +137,11 @@ class ETR:
         dataset = CustomDataset()
         dataset.add("decrypt", Decrypt)
         config = JsonTas(dataset).run(json_config)
+
+        # The execution space provider only needs to pass the instructions required before
+        # the sub suite is downloaded. The remaining instructions are read from the sub
+        # suite itself, letting any variables already set in the environment take precedence.
+        self.apply_sub_suite_environment(config)
 
         # ETR will print the entire environment just before executing.
         # Hide the encryption key.
@@ -199,6 +235,7 @@ class ETR:
                         f"Could not get sub suite environment event with id {self.environment_id!r}"
                     )
             self.download_and_load(sub_suite_url)
+            self.configure_eiffel_publisher()
             FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
             self.load_plugins()
             iut = Iut(self.etos.config.get("test_config").get("iut"))

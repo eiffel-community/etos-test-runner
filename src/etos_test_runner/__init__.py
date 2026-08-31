@@ -28,7 +28,7 @@ try:
 except PackageNotFoundError:
     VERSION = "Unknown"
 
-if os.getenv("ETOS_ENCRYPTION_KEY"):
+if os.getenv("ETOS_ENCRYPTION_KEY") and os.getenv("ETOS_RABBITMQ_PASSWORD"):
     os.environ["ETOS_RABBITMQ_PASSWORD"] = decrypt(
         os.environ["ETOS_RABBITMQ_PASSWORD"], os.getenv("ETOS_ENCRYPTION_KEY")
     )
