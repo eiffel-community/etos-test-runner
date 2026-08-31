@@ -18,6 +18,7 @@
 """ETOS test runner module."""
 
 import importlib
+import json
 import logging
 import os
 import pkgutil
@@ -29,12 +30,18 @@ from pprint import pprint
 from typing import Optional, Union
 
 from etos_lib import ETOS
+from etos_lib.kubernetes.schemas.v1beta1.environment import (
+    EnvironmentSpec as V1Beta1EnvironmentSpec,
+)
 from etos_lib.lib.http import Http
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.messaging.events import Status
 from etos_lib.messaging.types import ServiceHealth, ServiceStatus
+from etos_lib.schemas.v0.environment import Suite as V0Suite
 from jsontas.jsontas import JsonTas
+from pydantic import ValidationError
 from urllib3.util import Retry
+from yaml import safe_load
 
 from etos_test_runner.lib.custom_dataset import CustomDataset
 from etos_test_runner.lib.decrypt import Decrypt, decrypt
@@ -82,7 +89,7 @@ class ETR:
         """Catch sigterm."""
         raise Exception("ETR has been terminated.")  # pylint:disable=broad-exception-raised
 
-    def download_and_load(self, sub_suite_url: str) -> None:
+    def download_and_load(self, sub_suite_url: str) -> V1Beta1EnvironmentSpec:
         """Download and load test json.
 
         :param sub_suite_url: URL to where the sub suite information exists.
@@ -102,21 +109,36 @@ class ETR:
         http_client = Http(retry=retry)
 
         response = http_client.get(sub_suite_url)
-        json_config = response.json(object_pairs_hook=OrderedDict)
+        try:
+            json_config = response.json(object_pairs_hook=OrderedDict)
+        except json.JSONDecodeError:
+            testrun = safe_load(response.content)
+            json_config = OrderedDict(testrun)
         dataset = CustomDataset()
         dataset.add("decrypt", Decrypt)
         config = JsonTas(dataset).run(json_config)
+
+        try:
+            v0_suite = V0Suite(**config)
+            suite = V1Beta1EnvironmentSpec.convert_from(v0_suite)
+        except ValidationError:
+            suite = V1Beta1EnvironmentSpec(**config)
 
         # ETR will print the entire environment just before executing.
         # Hide the encryption key.
         if os.getenv("ETOS_ENCRYPTION_KEY"):
             os.environ["ETOS_ENCRYPTION_KEY"] = "*********"
 
+        # test_config kept for backward compatibility with plugins, but should not be used by
+        # ETR itself.
         self.etos.config.set("test_config", config)
-        self.etos.config.set("context", config.get("context"))
-        self.etos.config.set("artifact", config.get("artifact"))
-        self.etos.config.set("main_suite_id", config.get("test_suite_started_id"))
-        self.etos.config.set("suite_id", config.get("suite_id"))
+
+        self.etos.config.set("suite", suite)
+        self.etos.config.set("context", suite.context)
+        self.etos.config.set("artifact", suite.artifact)
+        self.etos.config.set("main_suite_id", suite.mainSuiteID)
+        self.etos.config.set("suite_id", suite.testrunID)
+        return suite
 
     def load_plugins(self) -> None:
         """Load plugins from environment using the name etr_."""
@@ -198,10 +220,10 @@ class ETR:
                     raise TimeoutError(
                         f"Could not get sub suite environment event with id {self.environment_id!r}"
                     )
-            self.download_and_load(sub_suite_url)
+            suite = self.download_and_load(sub_suite_url)
             FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
             self.load_plugins()
-            iut = Iut(self.etos.config.get("test_config").get("iut"))
+            iut = Iut(suite.iut)
             test_runner = TestRunner(iut, self.etos)
         except Exception as exception:  # pylint:disable=broad-except
             _LOGGER.exception("ETR failed to start.")
