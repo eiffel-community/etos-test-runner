@@ -109,8 +109,10 @@ class ETR:
             )
         self.etos.config.rabbitmq_publisher_from_environment()
         # ETR will print the entire environment just before executing.
-        # Hide the password.
+        # Hide the password and the encryption key.
         os.environ["RABBITMQ_PASSWORD"] = "*********"
+        if os.getenv("ETOS_ENCRYPTION_KEY"):
+            os.environ["ETOS_ENCRYPTION_KEY"] = "*********"
         self.etos.start_publisher()
 
     def download_and_load(self, sub_suite_url: str) -> None:
@@ -142,11 +144,6 @@ class ETR:
         # the sub suite is downloaded. The remaining instructions are read from the sub
         # suite itself, letting any variables already set in the environment take precedence.
         self.apply_sub_suite_environment(config)
-
-        # ETR will print the entire environment just before executing.
-        # Hide the encryption key.
-        if os.getenv("ETOS_ENCRYPTION_KEY"):
-            os.environ["ETOS_ENCRYPTION_KEY"] = "*********"
 
         self.etos.config.set("test_config", config)
         self.etos.config.set("context", config.get("context"))
