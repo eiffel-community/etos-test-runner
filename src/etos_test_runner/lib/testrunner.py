@@ -123,22 +123,65 @@ class TestRunner:
         recipes = self.config.get("recipes")
         result = True
         test_framework_exit_codes = []
+        total = len(recipes)
         for num, test in enumerate(recipes):
-            self.logger.info("Executing test %s/%s", num + 1, len(recipes))
             with Executor(test, self.iut, self.etos) as executor:
-                self.logger.info("Starting test '%s'", executor.test_name, extra={"user_log": True})
+                self.logger.info(
+                    "Recipe %d/%d starting: %r",
+                    num + 1,
+                    total,
+                    executor.test_name,
+                    extra={"user_log": True},
+                )
+                started = time.time()
                 executor.execute(workspace)
                 if not executor.result:
                     result = executor.result
                 self.logger.info(
-                    "Test '%s' finished. Result: %s. Test framework exit code: %d",
+                    "Recipe %d/%d finished: %r - %s (test framework exit code %s, %s)",
+                    num + 1,
+                    total,
                     executor.test_name,
-                    executor.result,
-                    executor.returncode,
+                    self.recipe_summary(executor),
+                    "unknown" if executor.returncode is None else executor.returncode,
+                    self.duration(time.time() - started),
                     extra={"user_log": True},
                 )
                 test_framework_exit_codes.append(executor.returncode)
         return result, test_framework_exit_codes
+
+    @staticmethod
+    def duration(seconds: float) -> str:
+        """Format a duration in seconds as a short human readable string.
+
+        :param seconds: Duration to format.
+        :type seconds: float
+        :return: Formatted duration, such as '2m14s'.
+        :rtype: str
+        """
+        minutes, seconds = divmod(int(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}h{minutes:02d}m{seconds:02d}s"
+        if minutes:
+            return f"{minutes}m{seconds:02d}s"
+        return f"{seconds}s"
+
+    @staticmethod
+    def recipe_summary(executor: Executor) -> str:
+        """Summarize the test case results that were parsed from a recipe.
+
+        :param executor: Executor that has finished executing a recipe.
+        :type executor: :obj:`etos_test_runner.lib.executor.Executor`
+        :return: Human readable summary of the test case results.
+        :rtype: str
+        """
+        if not executor.parsing_enabled:
+            return "per-test results unavailable (test regex not configured)"
+        results = executor.results
+        if not results:
+            return "no test case results reported, tests may not have run"
+        return ", ".join(f"{count} {name.lower()}" for name, count in sorted(results.items()))
 
     def outcome(
         self,

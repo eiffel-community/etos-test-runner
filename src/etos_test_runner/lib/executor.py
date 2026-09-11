@@ -22,6 +22,7 @@ import re
 import shlex
 import signal
 import subprocess
+from collections import Counter
 from pathlib import Path
 from pprint import pprint
 from shutil import copy
@@ -253,7 +254,28 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         for plugin in self.plugins:
             plugin.on_test_case_finished(test_name, result)
+        self.tests.setdefault(test_name, {})["result"] = result
         self.current_test = None
+
+    @property
+    def parsing_enabled(self):
+        """Whether or not test case results are parsed from the test framework output.
+
+        :return: True if a test regex has been loaded.
+        :rtype: bool
+        """
+        return bool(self.test_regex)
+
+    @property
+    def results(self):
+        """Number of test cases per result, as parsed from the test framework output.
+
+        :return: Counter with test case results, such as PASSED or FAILED, as keys.
+        :rtype: :obj:`collections.Counter`
+        """
+        return Counter(
+            test["result"] for test in self.tests.values() if test.get("result") is not None
+        )
 
     def _call(
         self, cmd, shell=False, env=None, executable=None, output=None, wait_output=True
