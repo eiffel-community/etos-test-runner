@@ -137,12 +137,13 @@ class TestRunner:
                 executor.execute(workspace)
                 if not executor.result:
                     result = executor.result
+                summary = self.test_case_summary(executor)
                 self.logger.info(
-                    "Test %d/%d finished: testCase.id %r - %s (test framework exit code %s, %s)",
+                    "Test %d/%d finished: testCase.id %r%s (test framework exit code %s, %s)",
                     num + 1,
                     total,
                     executor.test_name,
-                    self.test_case_summary(executor),
+                    f" - {summary}" if summary else "",
                     "unknown" if executor.returncode is None else executor.returncode,
                     self.duration(time.time() - started),
                     extra={"user_log": True},
@@ -173,14 +174,12 @@ class TestRunner:
 
         :param executor: Executor that has finished executing a test.
         :type executor: :obj:`etos_test_runner.lib.executor.Executor`
-        :return: Human readable summary of the test case results.
+        :return: Human readable summary, empty if no test case results were parsed.
         :rtype: str
         """
-        if not executor.parsing_enabled:
-            return "test case results unavailable (test regex not configured)"
         results = executor.results
         if not results:
-            return "no test case results reported, tests may not have run"
+            return ""
         return ", ".join(f"{count} {name.lower()}" for name, count in sorted(results.items()))
 
     def outcome(

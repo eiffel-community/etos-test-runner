@@ -258,15 +258,6 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         self.current_test = None
 
     @property
-    def parsing_enabled(self):
-        """Whether or not test case results are parsed from the test framework output.
-
-        :return: True if a test regex has been loaded.
-        :rtype: bool
-        """
-        return bool(self.test_regex)
-
-    @property
     def results(self):
         """Number of test cases per result, as parsed from the test framework output.
 
