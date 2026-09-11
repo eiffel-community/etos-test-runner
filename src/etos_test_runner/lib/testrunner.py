@@ -127,7 +127,7 @@ class TestRunner:
         for num, test in enumerate(recipes):
             with Executor(test, self.iut, self.etos) as executor:
                 self.logger.info(
-                    "Recipe %d/%d starting: %r",
+                    "Test %d/%d starting: testCase.id %r",
                     num + 1,
                     total,
                     executor.test_name,
@@ -138,11 +138,11 @@ class TestRunner:
                 if not executor.result:
                     result = executor.result
                 self.logger.info(
-                    "Recipe %d/%d finished: %r - %s (test framework exit code %s, %s)",
+                    "Test %d/%d finished: testCase.id %r - %s (test framework exit code %s, %s)",
                     num + 1,
                     total,
                     executor.test_name,
-                    self.recipe_summary(executor),
+                    self.test_case_summary(executor),
                     "unknown" if executor.returncode is None else executor.returncode,
                     self.duration(time.time() - started),
                     extra={"user_log": True},
@@ -168,16 +168,16 @@ class TestRunner:
         return f"{seconds}s"
 
     @staticmethod
-    def recipe_summary(executor: Executor) -> str:
-        """Summarize the test case results that were parsed from a recipe.
+    def test_case_summary(executor: Executor) -> str:
+        """Summarize the test case results that were parsed from the test framework output.
 
-        :param executor: Executor that has finished executing a recipe.
+        :param executor: Executor that has finished executing a test.
         :type executor: :obj:`etos_test_runner.lib.executor.Executor`
         :return: Human readable summary of the test case results.
         :rtype: str
         """
         if not executor.parsing_enabled:
-            return "per-test results unavailable (test regex not configured)"
+            return "test case results unavailable (test regex not configured)"
         results = executor.results
         if not results:
             return "no test case results reported, tests may not have run"
