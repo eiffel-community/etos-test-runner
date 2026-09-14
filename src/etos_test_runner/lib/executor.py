@@ -141,9 +141,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         test_directory_name = Path().absolute().name
         checkout = workspace.joinpath(f"checkout_{test_directory_name}.sh")
-        environment = shlex.quote(str(BASE.joinpath("environment.sh")))
+        test_framework = shlex.quote(str(BASE.joinpath("test-framework.sh")))
         with checkout.open(mode="w", encoding="utf-8") as checkout_file:
-            checkout_file.write(f"source {environment} || exit 1\n")
+            checkout_file.write(f"source {test_framework} || exit 1\n")
             for command in test_checkout:
                 checkout_file.write(f"{command} || exit 1\n")
 
@@ -167,8 +167,8 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         executor = Path().joinpath("executor.sh")
         copy(base_executor, executor)
 
-        # executor.sh sources environment.sh from its own directory.
-        copy(Path(BASE).joinpath("environment.sh"), Path().joinpath("environment.sh"))
+        # executor.sh sources test-framework.sh from its own directory.
+        copy(Path(BASE).joinpath("test-framework.sh"), Path().joinpath("test-framework.sh"))
 
         self.logger.info("Executor script:\n %s", executor.read_text(encoding="utf-8"))
 

@@ -17,8 +17,8 @@
 
 DIR="$(dirname "$0")"
 
-# Set up the test framework environment, see environment.sh for details.
-if ! source "$DIR/environment.sh" ; then
+# Set up the test framework environment, see test-framework.sh for details.
+if ! source "$DIR/test-framework.sh" ; then
     echo Could not set up the test framework environment.
     exit 1
 fi
