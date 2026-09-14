@@ -52,12 +52,35 @@ jobs:
     # Ensure requirements.lock stays consistent with pyproject.toml.
     name: Verify dependency lock
     runs-on: ubuntu-latest
+    # A Dependabot branch triggers both a push and a pull_request run. Keep only
+    # the pull_request one, so two runs cannot regenerate the lock in parallel.
+    if: github.event_name == 'pull_request' || !startsWith(github.ref_name, 'dependabot/')
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Check out the Dependabot branch instead of the merge commit, so the
+          # regenerated lock can be pushed back to it. Others use the default.
+          ref: ${{ github.actor == 'dependabot[bot]' && github.head_ref || '' }}
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
           version: "0.11.15"
+      # Dependabot bumps pyproject.toml but cannot rerun "uv pip compile", so its
+      # pull requests always arrive with a stale lock. Refresh it before verifying.
+      - name: Regenerate the lock for Dependabot pull requests
+        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+        run: |
+          make lock
+          if git diff --quiet -- requirements.lock; then
+            echo "requirements.lock is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Regenerate requirements.lock" -- requirements.lock
+          git push origin "HEAD:${{ github.head_ref }}"
       - name: Verify the lock installs on all supported Python versions
         run: make lock-verify
       - name: Verify all direct dependencies are pinned in the lock
