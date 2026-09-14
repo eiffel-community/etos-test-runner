@@ -79,7 +79,9 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Regenerate requirements.lock" -- requirements.lock
+          # "[dependabot skip]" lets Dependabot keep rebasing and force pushing
+          # the branch; otherwise it stops as soon as we add a commit.
+          git commit -m "Regenerate requirements.lock [dependabot skip]" -- requirements.lock
           git push origin "HEAD:${{ github.head_ref }}"
       - name: Verify the lock installs on all supported Python versions
         run: make lock-verify
