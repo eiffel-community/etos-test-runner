@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2020-2026 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
