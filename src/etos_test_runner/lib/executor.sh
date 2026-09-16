@@ -28,8 +28,8 @@ fi
 
 DIR="$(dirname "$0")"
 echo "Executing pre-execution script"
-cat "$DIR/environ.sh"
-if ! source "$DIR/environ.sh" ; then
+cat "$DIR/pre-execution.sh"
+if ! source "$DIR/pre-execution.sh" ; then
     echo Could not execute pre-execution script.
     exit 1
 fi

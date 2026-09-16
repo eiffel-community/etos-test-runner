@@ -204,13 +204,13 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :param command: Environment and pre execution shell command to write to shell script.
         :type command: str
         """
-        environ = Path().joinpath("environ.sh")
-        with environ.open(mode="w", encoding="utf-8") as environ_file:
+        pre_execution = Path().joinpath("pre-execution.sh")
+        with pre_execution.open(mode="w", encoding="utf-8") as pre_execution_file:
             for arg in command:
-                environ_file.write(f"{arg} || exit 1\n")
+                pre_execution_file.write(f"{arg} || exit 1\n")
         self.logger.info(
             "Pre-execution script (includes ENVIRONMENT):\n %s",
-            environ.read_text(encoding="utf-8"),
+            pre_execution.read_text(encoding="utf-8"),
         )
 
     def _build_environment_command(self):
