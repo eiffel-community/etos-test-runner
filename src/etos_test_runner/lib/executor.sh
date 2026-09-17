@@ -15,18 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Activate test virtual environment if configured.
-# Containers that use a separate virtualenv for test dependencies
-# can set TEST_FRAMEWORK_VENV to that venv path.
-# Falls back to pyenv for backward compatibility with older base images.
-if [ -n "$TEST_FRAMEWORK_VENV" ] && [ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then
-    source "$TEST_FRAMEWORK_VENV/bin/activate"
-elif command -v pyenv &>/dev/null; then
-    eval "$(pyenv init -)"
-    pyenv shell --unset
+DIR="$(dirname "$0")"
+
+# Set up the test framework environment, see test-framework.sh for details.
+if ! source "$DIR/test-framework.sh" ; then
+    echo Could not set up the test framework environment.
+    exit 1
 fi
 
-DIR="$(dirname "$0")"
 echo "Executing pre-execution script"
 cat "$DIR/pre-execution.sh"
 if ! source "$DIR/pre-execution.sh" ; then

@@ -141,16 +141,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         """
         test_directory_name = Path().absolute().name
         checkout = workspace.joinpath(f"checkout_{test_directory_name}.sh")
+        test_framework = shlex.quote(str(BASE.joinpath("test-framework.sh")))
         with checkout.open(mode="w", encoding="utf-8") as checkout_file:
-            checkout_file.write(
-                'if [ -n "$TEST_FRAMEWORK_VENV" ] && '
-                '[ -f "$TEST_FRAMEWORK_VENV/bin/activate" ]; then\n'
-                '    source "$TEST_FRAMEWORK_VENV/bin/activate"\n'
-                "elif command -v pyenv &>/dev/null; then\n"
-                '    eval "$(pyenv init -)"\n'
-                "    pyenv shell --unset\n"
-                "fi\n"
-            )
+            checkout_file.write(f"source {test_framework} || exit 1\n")
             for command in test_checkout:
                 checkout_file.write(f"{command} || exit 1\n")
 
@@ -173,6 +166,9 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         base_executor = Path(BASE).joinpath("executor.sh")
         executor = Path().joinpath("executor.sh")
         copy(base_executor, executor)
+
+        # executor.sh sources test-framework.sh from its own directory.
+        copy(Path(BASE).joinpath("test-framework.sh"), Path().joinpath("test-framework.sh"))
 
         self.logger.info("Executor script:\n %s", executor.read_text(encoding="utf-8"))
 
