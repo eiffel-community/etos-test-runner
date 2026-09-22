@@ -144,8 +144,6 @@ V1_SUITE = EnvironmentSpec(
             id="6e8d29eb-4b05-4f5e-9207-0c94438479c7",
             testCase=ETOSTestCase(
                 id="ETOS API functests",
-                tracker="Github",
-                url="https://github.com/eiffel-community/etos-api",
             ),
             execution=Execution(
                 command="/bin/bash ./test.sh",
