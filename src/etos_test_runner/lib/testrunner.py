@@ -126,22 +126,64 @@ class TestRunner:
         """
         result = True
         test_framework_exit_codes = []
+        total = len(self.suite.testExecutions)
         for num, test in enumerate(self.suite.testExecutions):
-            self.logger.info("Executing test %s/%s", num + 1, len(self.suite.testExecutions))
             with Executor(test, self.iut, self.etos) as executor:
-                self.logger.info("Starting test '%s'", executor.test_name, extra={"user_log": True})
+                self.logger.info(
+                    "Test %d/%d starting: testCase.id %r",
+                    num + 1,
+                    total,
+                    executor.test_name,
+                    extra={"user_log": True},
+                )
+                started = time.time()
                 executor.execute(workspace)
                 if not executor.result:
                     result = executor.result
+                summary = self.test_case_summary(executor)
                 self.logger.info(
-                    "Test '%s' finished. Result: %s. Test framework exit code: %d",
+                    "Test %d/%d finished: testCase.id %r%s (test framework exit code %s, %s)",
+                    num + 1,
+                    total,
                     executor.test_name,
-                    executor.result,
-                    executor.returncode,
+                    f" - {summary}" if summary else "",
+                    "unknown" if executor.returncode is None else executor.returncode,
+                    self.duration(time.time() - started),
                     extra={"user_log": True},
                 )
                 test_framework_exit_codes.append(executor.returncode)
         return result, test_framework_exit_codes
+
+    @staticmethod
+    def duration(seconds: float) -> str:
+        """Format a duration in seconds as a short human readable string.
+
+        :param seconds: Duration to format.
+        :type seconds: float
+        :return: Formatted duration, such as '2m14s'.
+        :rtype: str
+        """
+        minutes, seconds = divmod(int(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}h{minutes:02d}m{seconds:02d}s"
+        if minutes:
+            return f"{minutes}m{seconds:02d}s"
+        return f"{seconds}s"
+
+    @staticmethod
+    def test_case_summary(executor: Executor) -> str:
+        """Summarize the test case results that were parsed from the test framework output.
+
+        :param executor: Executor that has finished executing a test.
+        :type executor: :obj:`etos_test_runner.lib.executor.Executor`
+        :return: Human readable summary, empty if no test case results were parsed.
+        :rtype: str
+        """
+        results = executor.results
+        if not results:
+            return ""
+        return ", ".join(f"{count} {name.lower()}" for name, count in sorted(results.items()))
 
     def outcome(
         self,
