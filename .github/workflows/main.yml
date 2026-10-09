@@ -48,6 +48,21 @@ jobs:
       - name: Build a binary wheel and a source tarball
         run: python3 -m build
 
+  docker-test:
+    # The container image must build and satisfy its contract
+    name: Test container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build the image
+        run: make docker-build
+      - name: Test the image
+        run: make docker-test
+
   verify-lock:
     # Ensure requirements.lock stays consistent with pyproject.toml.
     name: Verify dependency lock

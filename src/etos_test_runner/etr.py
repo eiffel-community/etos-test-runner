@@ -24,6 +24,7 @@ import os
 import pkgutil
 import signal
 import sys
+import time
 from collections import OrderedDict
 from importlib.metadata import version
 from pprint import pprint
@@ -48,6 +49,13 @@ from etos_test_runner.lib.decrypt import Decrypt, decrypt
 from etos_test_runner.lib.events import EventPublisher
 from etos_test_runner.lib.iut import Iut
 from etos_test_runner.lib.testrunner import TestRunner
+from etos_test_runner.lib.tracing import (
+    extract_launch_context,
+    flush,
+    record_error,
+    record_milestone,
+    tracer,
+)
 
 VERSION = version("etos_test_runner")
 
@@ -64,6 +72,7 @@ class ETR:
 
     def __init__(self) -> None:
         """Initialize ETOS library and configure the internal message bus."""
+        self.trace_context = extract_launch_context()
         self.etos = ETOS("ETOS Test Runner", os.getenv("HOSTNAME"), "ETOS Test Runner")
         # The internal message bus (ETOS_RABBITMQ_*) is used already before the sub suite
         # has been downloaded, e.g. for status events, so it is configured from the
@@ -243,22 +252,37 @@ class ETR:
                 )
             ),
         )
+        startup = tracer().start_span("etos.runner.startup", context=self.trace_context)
+        startup_started = time.monotonic()
         try:
-            _LOGGER.info("Starting ETR.")
-            sub_suite_url = self.environment_url
-            if sub_suite_url is None:
-                sub_suite_url = self.get_sub_suite_url(self.environment_id)
+            startup.add_event("runner.startup.started")
+            with tracer().start_as_current_span(
+                "etos.suite.admission", context=self.trace_context
+            ) as admission:
+                admission.add_event("suite.admitted")
+                record_milestone("suite_admission", "started")
+                _LOGGER.info("Starting ETR.")
+                sub_suite_url = self.environment_url
                 if sub_suite_url is None:
-                    raise TimeoutError(
-                        f"Could not get sub suite environment event with id {self.environment_id!r}"
-                    )
-            suite = self.download_and_load(sub_suite_url)
+                    sub_suite_url = self.get_sub_suite_url(self.environment_id)
+                    if sub_suite_url is None:
+                        raise TimeoutError("Could not get sub suite environment event.")
+            with tracer().start_as_current_span(
+                "etos.suite.load", context=self.trace_context
+            ) as load:
+                suite = self.download_and_load(sub_suite_url)
+                load.add_event("suite.loaded")
+                record_milestone("suite_load", "successful")
             self.configure_eiffel_publisher()
             FORMAT_CONFIG.identifier = self.etos.config.get("suite_id")
             self.load_plugins()
             iut = Iut(suite.iut)
-            test_runner = TestRunner(iut, self.etos)
+            test_runner = TestRunner(iut, self.etos, trace_context=self.trace_context)
+            startup.add_event("runner.startup.finished")
+            record_milestone("startup", "successful", time.monotonic() - startup_started)
         except Exception as exception:  # pylint:disable=broad-except
+            record_error(startup, exception)
+            record_milestone("startup", "error", time.monotonic() - startup_started)
             _LOGGER.exception("ETR failed to start.")
             _LOGGER.info("Publishing status event: ETOS Test Runner failed to start.")
             event_publisher.publish_v2(
@@ -273,10 +297,13 @@ class ETR:
                 ),
             )
             raise
+        finally:
+            startup.end()
         # test_runner.execute() will publish TestSuiteStarted and TestSuiteFinished events to manage
         # if there are any failures, no need for status events after this point.
         result = test_runner.execute()
         _LOGGER.info("ETR finished.")
+        flush()
         return result
 
 
