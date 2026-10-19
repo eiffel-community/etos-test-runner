@@ -63,7 +63,8 @@ Without an endpoint, or with ``OTEL_SDK_DISABLED=true``, tracing is no-op.
 Suite-level lifecycle spans and bounded phase/outcome metrics are retained;
 individual test executions do not emit tracing events. Metrics use the OTLP
 endpoint or ``OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`` and expose no local scrape
-endpoint.
+endpoint. Without an endpoint, or with ``OTEL_SDK_DISABLED=true``, metrics is
+no-op.
 
 
 Contribute
