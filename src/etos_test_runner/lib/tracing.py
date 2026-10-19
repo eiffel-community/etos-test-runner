@@ -62,7 +62,7 @@ def extract_launch_context(environ: Optional[Mapping[str, str]] = None):
 
 
 def cluster_identity() -> str:
-    """Use explicit ownership or propagated qualified launch baggage."""
+    """Use ETOS_CLUSTER and ETOS_NAMESPACE or propagated baggage to add etos_cluster attributes."""
     namespace = os.getenv("ETOS_NAMESPACE", "").strip()
     cluster = os.getenv("ETOS_CLUSTER", "").strip()
     if namespace and cluster and "/" not in namespace and "/" not in cluster:
