@@ -55,16 +55,16 @@ local installation guide for the complete suite workflow.
 Telemetry
 =========
 
-Set ``OTEL_EXPORTER_OTLP_ENDPOINT`` to enable tracing and correlated logging.
-Like the suite runner, initialization uses OpenTelemetry environment and process
-resource detectors with the test runner's service name and installed version.
-Without an endpoint, or with ``OTEL_SDK_DISABLED=true``, tracing is no-op.
+Set ``OTEL_EXPORTER_OTLP_ENDPOINT`` to enable tracing, metrics and correlated
+logging. Like the suite runner, initialization uses OpenTelemetry environment
+and process resource detectors with the test runner's service name and
+installed version. Without an endpoint, or with ``OTEL_SDK_DISABLED=true``,
+all tracing is no-op.
 
 Suite-level lifecycle spans and bounded phase/outcome metrics are retained;
 individual test executions do not emit tracing events. Metrics use the OTLP
 endpoint or ``OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`` and expose no local scrape
-endpoint. Without an endpoint, or with ``OTEL_SDK_DISABLED=true``, metrics is
-no-op.
+endpoint.
 
 
 Contribute
