@@ -30,6 +30,13 @@ from etos_test_runner.lib.iut_monitoring import IutMonitoring
 from etos_test_runner.lib.log_area import LogArea
 from etos_test_runner.lib.verdict import CustomVerdictMatcher
 from etos_test_runner.lib.workspace import Workspace
+from etos_test_runner.lib.tracing import (
+    flush,
+    record_error,
+    record_milestone,
+    set_outcome,
+    tracer,
+)
 
 
 class TestRunner:
@@ -37,7 +44,7 @@ class TestRunner:
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, iut, etos):
+    def __init__(self, iut, etos, trace_context=None):
         """Initialize.
 
         :param iut: IUT to execute tests on.
@@ -46,6 +53,7 @@ class TestRunner:
         :type etos: :obj:`etos_lib.etos.ETOS`
         """
         self.etos = etos
+        self.trace_context = trace_context
         self.iut = iut
         self.suite = self.etos.config.get("suite")
         assert isinstance(
@@ -60,6 +68,7 @@ class TestRunner:
         self.plugins = self.etos.config.get("plugins")
         self._result = True
         self._outcome = None
+        self._active_execution_span = None
 
         verdict_rule_file = os.getenv("VERDICT_RULES_FILE")
         if verdict_rule_file is not None:
@@ -227,6 +236,8 @@ class TestRunner:
                 "Tests did not execute successfully. Setting verdict to '%s'",
                 verdict,
             )
+        if self._active_execution_span is not None:
+            set_outcome(self._active_execution_span, verdict, conclusion)
 
         suite_name = self.suite.name
         if not description and not result:
@@ -302,6 +313,7 @@ class TestRunner:
             self._result = False
             executed = False
             description = str(exception)
+            record_error(self._active_execution_span, exception)
             raise
         finally:
             if self.iut_monitoring.monitoring:
@@ -317,6 +329,7 @@ class TestRunner:
 
     def wait_for_events(self):
         """Wait for the Eiffel publisher to deliver all events."""
+        self._active_execution_span.add_event("terminal.wait_for_events.started")
         timeout = time.time() + 600  # 10 minutes
         self.logger.info("Waiting for eiffel publisher to deliver events (600s).")
         previous = 0
@@ -333,9 +346,12 @@ class TestRunner:
                     )
                     timeout = time.time() + 10
                 else:
-                    raise TimeoutError("Eiffel publisher did not deliver all eiffel events.")
+                    error = TimeoutError("Eiffel publisher did not deliver all eiffel events.")
+                    record_error(self._active_execution_span, error)
+                    raise error
             previous = current
             time.sleep(1)
+        self._active_execution_span.add_event("terminal.wait_for_events.finished")
 
     def execute(self):
         """Execute all tests in test suite.
@@ -344,57 +360,77 @@ class TestRunner:
         :rtype: int
         """
         test_suite_started = None
+        self._active_execution_span = tracer().start_span(
+            "etos.subsuite.execute", context=self.trace_context
+        )
+        self._active_execution_span.add_event("etos.subsuite.started")
+        execution_started = time.monotonic()
+        record_milestone("execution", "started")
         try:
-            self._test_suite_triggered(self.suite.name)
-            self.logger.info("Send test suite started event.")
-            test_suite_started = self.test_suite_started()
-            self._test_suite_started(test_suite_started)
-            sub_suite_id = test_suite_started.meta.event_id
-
-            self.logger.info("Send test environment events.")
-            self.environment(sub_suite_id)
-            self.etos.config.set("sub_suite_id", sub_suite_id)
-
-            self._result = True
-            self._outcome = None
-
-            with Workspace(self.log_area) as workspace:
-                self._run_and_finalize(workspace)
-        finally:
-            if test_suite_started is None:
-                self.logger.warning(
-                    "Test suite did not start successfully. "
-                    "Sending test suite started event in order to finish properly.",
-                )
+            try:
+                self._test_suite_triggered(self.suite.name)
+                self.logger.info("Send test suite started event.")
                 test_suite_started = self.test_suite_started()
-                self._outcome = {
-                    "verdict": "INCONCLUSIVE",
-                    "conclusion": "FAILED",
-                    "description": "Test suite did not start successfully.",
-                }
-            published_reports = self.etos.config.get("published_report_count") or 0
-            published_artifacts = self.etos.config.get("published_artifact_count") or 0
-            self.logger.info(
-                "Log area upload finished. Total files published: "
-                "%d (%d log(s), %d artifact(s))",
-                published_reports + published_artifacts,
-                published_reports,
-                published_artifacts,
-                extra={"user_log": True},
-            )
-            if self._outcome is None:
-                self.logger.info("Figure out test outcome.")
-                self._outcome = self.outcome(self._result, False, None, [])
-                pprint(self._outcome)
-            self.logger.info("Send test suite finished event.")
-            test_suite_finished = self.etos.events.send_test_suite_finished(
-                test_suite_started,
-                links={"CONTEXT": self.etos.config.get("context")},
-                outcome=self._outcome,
-                persistentLogs=self.log_area.persistent_logs,
-            )
-            self.logger.info(test_suite_finished.pretty)
+                self._test_suite_started(test_suite_started)
+                sub_suite_id = test_suite_started.meta.event_id
 
-        self.wait_for_events()
-        self.logger.info("Tests finished executing.")
-        return 0 if self._result else self._outcome
+                self.logger.info("Send test environment events.")
+                self.environment(sub_suite_id)
+                self.etos.config.set("sub_suite_id", sub_suite_id)
+
+                self._result = True
+                self._outcome = None
+
+                with Workspace(self.log_area) as workspace:
+                    self._run_and_finalize(workspace)
+            finally:
+                if test_suite_started is None:
+                    self.logger.warning(
+                        "Test suite did not start successfully. "
+                        "Sending test suite started event in order to finish properly.",
+                    )
+                    test_suite_started = self.test_suite_started()
+                    self._outcome = {
+                        "verdict": "INCONCLUSIVE",
+                        "conclusion": "FAILED",
+                        "description": "Test suite did not start successfully.",
+                    }
+                published_reports = self.etos.config.get("published_report_count") or 0
+                published_artifacts = self.etos.config.get("published_artifact_count") or 0
+                self.logger.info(
+                    "Log area upload finished. Total files published: "
+                    "%d (%d log(s), %d artifact(s))",
+                    published_reports + published_artifacts,
+                    published_reports,
+                    published_artifacts,
+                    extra={"user_log": True},
+                )
+                if self._outcome is None:
+                    self.logger.info("Figure out test outcome.")
+                    self._outcome = self.outcome(self._result, False, None, [])
+                    pprint(self._outcome)
+                self.logger.info("Send test suite finished event.")
+                test_suite_finished = self.etos.events.send_test_suite_finished(
+                    test_suite_started,
+                    links={"CONTEXT": self.etos.config.get("context")},
+                    outcome=self._outcome,
+                    persistentLogs=self.log_area.persistent_logs,
+                )
+                self.logger.info(test_suite_finished.pretty)
+
+            self._active_execution_span.add_event("terminal.cleanup.started")
+            cleanup_started = time.monotonic()
+            self.wait_for_events()
+            self._active_execution_span.add_event("terminal.cleanup.finished")
+            record_milestone("terminal_cleanup", "successful", time.monotonic() - cleanup_started)
+            self.logger.info("Tests finished executing.")
+            return 0 if self._result else self._outcome
+        finally:
+            record_milestone(
+                "execution",
+                "successful" if self._result else "failed",
+                time.monotonic() - execution_started,
+            )
+            self._active_execution_span.add_event("etos.subsuite.finished")
+            self._active_execution_span.end()
+            flush()

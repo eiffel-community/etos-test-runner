@@ -8,7 +8,19 @@ LOCK := requirements.lock
 # Scratch directory for the throwaway venvs used by lock-verify.
 LOCK_VERIFY_DIR := .lock-verify
 
-.PHONY: lock lock-verify
+.PHONY: lock lock-verify docker-build docker-test
+
+ETR_REVISION := $(shell git rev-parse HEAD)
+IMG ?= etos-test-runner:local-$(shell git rev-parse --short=12 HEAD)
+
+# Archive HEAD rather than copying a worktree's invalid .git pointer or dirty files.
+docker-build:
+	git archive --format=tar HEAD | docker build \
+		--build-arg ETR_REVISION=$(ETR_REVISION) --tag $(IMG) -
+
+docker-test:
+	ETOS_ENABLE_SENDING_LOGS=false DISABLE_EVENT_PUBLISHING=true \
+		ETR_IMAGE=$(IMG) python -m unittest tests.test_container
 
 # Regenerate the dependency lock from pyproject.toml.
 #

@@ -22,6 +22,7 @@ from importlib.metadata import version, PackageNotFoundError
 from etos_lib.logging.logger import setup_logging
 
 from etos_test_runner.lib.decrypt import decrypt
+from etos_test_runner.lib.tracing import configure_tracing
 
 try:
     VERSION = version("etos_test_runner")
@@ -35,7 +36,8 @@ if os.getenv("ETOS_ENCRYPTION_KEY") and os.getenv("ETOS_RABBITMQ_PASSWORD"):
 
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT)
+OTEL_RESOURCE = configure_tracing(VERSION)
+setup_logging("ETOS Test Runner", VERSION, ENVIRONMENT, otel_resource=OTEL_RESOURCE)
 
 # JSONTas would print all passwords as they are decrypted,
 # which is not safe, so we disable propagation on the loggers.

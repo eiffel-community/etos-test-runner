@@ -1,0 +1,13 @@
+.git
+.venv*
+.tox
+.pytest_cache
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+.coverage
+artifacts
+logs
+build
+dist
+.lock-verify
