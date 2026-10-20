@@ -24,6 +24,12 @@ from opentelemetry import context as otel_context
 from opentelemetry import baggage, metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+    OTLPMetricExporter as HttpOTLPMetricExporter,
+)
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter as HttpOTLPSpanExporter,
+)
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
@@ -80,17 +86,32 @@ def configure_tracing(version: str) -> Optional[Resource]:
         _LOGGER.info("OpenTelemetry disabled by OTEL_SDK_DISABLED.")
         return None
     configure_metrics(version)
-    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-        _LOGGER.info("OpenTelemetry not enabled. OTEL_EXPORTER_OTLP_ENDPOINT not set.")
+    if not (
+        os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    ):
+        _LOGGER.info("OpenTelemetry not enabled. OTLP traces endpoint not set.")
         return None
     resource = get_aggregated_resources([OTELResourceDetector(), ProcessResourceDetector()]).merge(
         Resource.create({SERVICE_NAME: TRACER_NAME, SERVICE_VERSION: version})
     )
     if not isinstance(trace.get_tracer_provider(), TracerProvider):
         provider = TracerProvider(resource=resource)
-        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+        protocol = os.getenv(
+            "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+            os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"),
+        )
+        if protocol == "grpc":
+            exporter = OTLPSpanExporter()
+        elif protocol == "http/protobuf":
+            exporter = HttpOTLPSpanExporter()
+        else:
+            raise ValueError(f"Unsupported OTLP traces protocol: {protocol}")
+        provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
-    _LOGGER.info("Using OpenTelemetry collector: %s", os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+    _LOGGER.info(
+        "Using OpenTelemetry collector: %s",
+        os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+    )
     return resource
 
 
@@ -104,11 +125,21 @@ def configure_metrics(version: str) -> None:
         os.getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     ):
         return
+    protocol = os.getenv(
+        "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+        os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"),
+    )
+    if protocol == "grpc":
+        exporter = OTLPMetricExporter()
+    elif protocol == "http/protobuf":
+        exporter = HttpOTLPMetricExporter()
+    else:
+        raise ValueError(f"Unsupported OTLP metrics protocol: {protocol}")
     provider = MeterProvider(
         resource=Resource.create({SERVICE_NAME: TRACER_NAME, SERVICE_VERSION: version}),
         metric_readers=[
             PeriodicExportingMetricReader(
-                OTLPMetricExporter(),
+                exporter,
                 export_interval_millis=60_000,
                 export_timeout_millis=1_000,
             )
@@ -137,8 +168,10 @@ def milestone_instruments():
 
 def tracer():
     """Return the application tracer."""
-    if os.getenv("OTEL_SDK_DISABLED", "").lower() == "true" or not os.getenv(
-        "OTEL_EXPORTER_OTLP_ENDPOINT"
+    if (
+        os.getenv("OTEL_SDK_DISABLED", "").lower() == "true"
+        or not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        and not os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     ):
         return trace.NoOpTracerProvider().get_tracer(TRACER_NAME)
     return trace.get_tracer(TRACER_NAME)

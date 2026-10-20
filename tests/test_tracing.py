@@ -153,14 +153,36 @@ def test_unconfigured_or_disabled_tracing_is_noop(monkeypatch, disabled):
         configure_metrics.assert_not_called()
 
 
-def test_tracing_uses_suite_runner_resources(monkeypatch):
+@pytest.mark.parametrize(
+    ("generic_protocol", "traces_protocol", "expected_exporter"),
+    [("http/protobuf", "grpc", "grpc"), ("http/protobuf", None, "http")],
+)
+@pytest.mark.parametrize(
+    "endpoint",
+    ["OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"],
+)
+def test_tracing_uses_suite_runner_resources(
+    monkeypatch, generic_protocol, traces_protocol, expected_exporter, endpoint
+):
     """Configured tracing detects process resources and preserves service identity."""
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.setenv(endpoint, "http://localhost:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", generic_protocol)
+    if traces_protocol:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", traces_protocol)
+    else:
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", raising=False)
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "deployment.environment.name=local")
     monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
     monkeypatch.setattr(tracing, "configure_metrics", Mock())
     monkeypatch.setattr(tracing, "BatchSpanProcessor", Mock())
-    monkeypatch.setattr(tracing, "OTLPSpanExporter", Mock())
+    grpc_exporter = Mock()
+    http_exporter = Mock()
+    grpc_exporter_class = Mock(return_value=grpc_exporter)
+    http_exporter_class = Mock(return_value=http_exporter)
+    monkeypatch.setattr(tracing, "OTLPSpanExporter", grpc_exporter_class)
+    monkeypatch.setattr(tracing, "HttpOTLPSpanExporter", http_exporter_class)
     monkeypatch.setattr(tracing.trace, "get_tracer_provider", Mock(return_value=None))
     install = Mock()
     monkeypatch.setattr(tracing.trace, "set_tracer_provider", install)
@@ -171,8 +193,23 @@ def test_tracing_uses_suite_runner_resources(monkeypatch):
     assert resource.attributes["service.version"] == "test-version"
     assert resource.attributes["deployment.environment.name"] == "local"
     assert "process.pid" in resource.attributes
+    expected_class = http_exporter_class if expected_exporter == "http" else grpc_exporter_class
+    other_class = grpc_exporter_class if expected_exporter == "http" else http_exporter_class
+    expected_class.assert_called_once_with()
+    other_class.assert_not_called()
     install.assert_called_once()
     install.call_args.args[0].shutdown()
+
+
+def test_tracer_uses_traces_specific_endpoint(monkeypatch):
+    """A traces-specific endpoint enables the application tracer."""
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4318")
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
+    application_tracer = Mock()
+    monkeypatch.setattr(tracing.trace, "get_tracer", Mock(return_value=application_tracer))
+
+    assert tracing.tracer() is application_tracer
 
 
 def test_metrics_configuration_is_idempotent(monkeypatch):
@@ -231,6 +268,55 @@ def test_default_runtime_metrics(monkeypatch, endpoint):
         tracing.SystemMetricsInstrumentor().uninstrument()
         if install.called:
             install.call_args.args[0].shutdown()
+
+
+@pytest.mark.parametrize(
+    ("generic_protocol", "metrics_protocol", "expected_exporter"),
+    [
+        ("http/protobuf", None, "http"),
+        ("http/protobuf", "grpc", "grpc"),
+    ],
+)
+def test_metrics_protocol_selection(
+    monkeypatch, generic_protocol, metrics_protocol, expected_exporter
+):
+    """Metric-specific protocol overrides the generic OTLP protocol."""
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4318")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", generic_protocol)
+    if metrics_protocol:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", metrics_protocol)
+    else:
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", raising=False)
+    monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
+    monkeypatch.setattr(tracing.metrics, "get_meter_provider", Mock(return_value=None))
+
+    class FakeMeterProvider:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(tracing, "MeterProvider", FakeMeterProvider)
+    monkeypatch.setattr(tracing.metrics, "set_meter_provider", Mock())
+    reader = Mock()
+    monkeypatch.setattr(tracing, "PeriodicExportingMetricReader", Mock(return_value=reader))
+    grpc_exporter = Mock()
+    http_exporter = Mock()
+    grpc_exporter_class = Mock(return_value=grpc_exporter)
+    http_exporter_class = Mock(return_value=http_exporter)
+    monkeypatch.setattr(tracing, "OTLPMetricExporter", grpc_exporter_class)
+    monkeypatch.setattr(tracing, "HttpOTLPMetricExporter", http_exporter_class)
+    instrumentor = Mock()
+    monkeypatch.setattr(tracing, "SystemMetricsInstrumentor", Mock(return_value=instrumentor))
+
+    tracing.configure_metrics("test-version")
+
+    expected_class = http_exporter_class if expected_exporter == "http" else grpc_exporter_class
+    other_class = grpc_exporter_class if expected_exporter == "http" else http_exporter_class
+    expected_class.assert_called_once_with()
+    other_class.assert_not_called()
+    assert (
+        reader is tracing.metrics.set_meter_provider.call_args.args[0].kwargs["metric_readers"][0]
+    )
+    instrumentor.instrument.assert_called_once()
 
 
 @pytest.mark.parametrize("disabled", ["true", "TRUE", ""])
