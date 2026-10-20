@@ -24,6 +24,7 @@ from opentelemetry import context as otel_context
 from opentelemetry import baggage, metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -114,6 +115,7 @@ def configure_metrics(version: str) -> None:
         ],
     )
     metrics.set_meter_provider(provider)
+    SystemMetricsInstrumentor().instrument(meter_provider=provider)
 
 
 @lru_cache(maxsize=1)

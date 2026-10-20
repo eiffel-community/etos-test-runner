@@ -20,6 +20,7 @@ from unittest.mock import Mock
 
 import pytest
 from opentelemetry import baggage, trace
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -182,11 +183,75 @@ def test_metrics_configuration_is_idempotent(monkeypatch):
     monkeypatch.setattr(tracing.metrics, "get_meter_provider", lambda: provider)
     install = Mock()
     monkeypatch.setattr(tracing.metrics, "set_meter_provider", install)
+    instrument = Mock()
+    monkeypatch.setattr(tracing.SystemMetricsInstrumentor, "instrument", instrument)
 
     tracing.configure_metrics("test")
 
     install.assert_not_called()
+    instrument.assert_not_called()
     provider.shutdown()
+
+
+@pytest.mark.parametrize(
+    "endpoint", ["OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"]
+)
+def test_default_runtime_metrics(monkeypatch, endpoint):
+    """System and process metrics use the configured OTLP provider and service resource."""
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
+    monkeypatch.setenv(endpoint, "http://localhost:4317")
+    monkeypatch.setattr(tracing.metrics, "get_meter_provider", Mock(return_value=None))
+    install = Mock()
+    monkeypatch.setattr(tracing.metrics, "set_meter_provider", install)
+    monkeypatch.setattr(tracing, "OTLPMetricExporter", Mock())
+    reader = InMemoryMetricReader()
+    monkeypatch.setattr(tracing, "PeriodicExportingMetricReader", Mock(return_value=reader))
+
+    try:
+        tracing.configure_metrics("test-version")
+
+        install.assert_called_once()
+        data = reader.get_metrics_data()
+        names = {
+            metric.name
+            for resource_metrics in data.resource_metrics
+            for scope_metrics in resource_metrics.scope_metrics
+            for metric in scope_metrics.metrics
+        }
+        assert any(name.startswith("system.") for name in names)
+        assert any(name.startswith("process.runtime.") for name in names)
+        assert all(
+            resource_metrics.resource.attributes["service.name"] == "etos-test-runner"
+            and resource_metrics.resource.attributes["service.version"] == "test-version"
+            for resource_metrics in data.resource_metrics
+        )
+    finally:
+        tracing.SystemMetricsInstrumentor().uninstrument()
+        if install.called:
+            install.call_args.args[0].shutdown()
+
+
+@pytest.mark.parametrize("disabled", ["true", "TRUE", ""])
+def test_unconfigured_or_disabled_runtime_metrics(monkeypatch, disabled):
+    """Unconfigured or disabled telemetry does not start runtime instrumentation."""
+    monkeypatch.setenv("OTEL_SDK_DISABLED", disabled)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
+    if disabled:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4317")
+    monkeypatch.setattr(tracing.metrics, "get_meter_provider", Mock(return_value=None))
+    install = Mock()
+    monkeypatch.setattr(tracing.metrics, "set_meter_provider", install)
+    instrument = Mock()
+    monkeypatch.setattr(tracing.SystemMetricsInstrumentor, "instrument", instrument)
+
+    tracing.configure_metrics("test-version")
+
+    install.assert_not_called()
+    instrument.assert_not_called()
 
 
 def test_run_tests_does_not_emit_execution_events(monkeypatch):
