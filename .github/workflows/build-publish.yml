@@ -15,14 +15,17 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: "3.13"
-    - name: Install pypa/build
+    - name: Install packaging tools
       run: >-
         python3 -m
         pip install
         build
+        twine
         --user
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
+    - name: Check distribution metadata
+      run: python3 -m twine check --strict dist/*
     - name: Store the distribution packages
       uses: actions/upload-artifact@v6
       with:
