@@ -290,12 +290,18 @@ def test_metrics_protocol_selection(
     monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
     monkeypatch.setattr(tracing.metrics, "get_meter_provider", Mock(return_value=None))
 
-    class FakeMeterProvider:
+    # pylint: disable=too-few-public-methods
+    class FakeMeterProvider(tracing.MeterProvider):
+        """Capture the meter provider configuration without starting exporters."""
+
         def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.kwargs = kwargs
 
-    monkeypatch.setattr(tracing, "MeterProvider", FakeMeterProvider)
-    monkeypatch.setattr(tracing.metrics, "set_meter_provider", Mock())
+    meter_provider_class = FakeMeterProvider
+    monkeypatch.setattr(tracing, "MeterProvider", meter_provider_class)
+    set_meter_provider = Mock()
+    monkeypatch.setattr(tracing.metrics, "set_meter_provider", set_meter_provider)
     reader = Mock()
     monkeypatch.setattr(tracing, "PeriodicExportingMetricReader", Mock(return_value=reader))
     grpc_exporter = Mock()
@@ -310,13 +316,14 @@ def test_metrics_protocol_selection(
     tracing.configure_metrics("test-version")
 
     expected_class = http_exporter_class if expected_exporter == "http" else grpc_exporter_class
-    other_class = grpc_exporter_class if expected_exporter == "http" else http_exporter_class
     expected_class.assert_called_once_with()
-    other_class.assert_not_called()
-    assert (
-        reader is tracing.metrics.set_meter_provider.call_args.args[0].kwargs["metric_readers"][0]
-    )
-    instrumentor.instrument.assert_called_once()
+    (
+        grpc_exporter_class if expected_exporter == "http" else http_exporter_class
+    ).assert_not_called()
+    meter_provider = set_meter_provider.call_args.args[0]
+    assert reader is meter_provider.kwargs["metric_readers"][0]
+    set_meter_provider.assert_called_once_with(meter_provider)
+    instrumentor.instrument.assert_called_once_with(meter_provider=meter_provider)
 
 
 @pytest.mark.parametrize("disabled", ["true", "TRUE", ""])
