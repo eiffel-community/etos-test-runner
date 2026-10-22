@@ -22,7 +22,7 @@ Installation
 
 
 Prebuilt local container
-=======================
+========================
 
 Commit the intended changes, then run ``make docker-build``. This builds only
 ``HEAD`` (including in a Git worktree), not staged or uncommitted files.
