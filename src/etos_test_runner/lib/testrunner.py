@@ -22,6 +22,7 @@ import time
 from pprint import pprint
 from typing import Union
 
+from opentelemetry import context as otel_context, trace
 from eiffellib.events import EiffelTestSuiteStartedEvent
 from etos_lib.kubernetes.schemas.v1beta1.environment import EnvironmentSpec
 
@@ -36,6 +37,7 @@ from etos_test_runner.lib.tracing import (
     record_milestone,
     set_outcome,
     tracer,
+    inject_context,
 )
 
 
@@ -69,6 +71,7 @@ class TestRunner:
         self._result = True
         self._outcome = None
         self._active_execution_span = None
+        self.trace_environment = {}
 
         verdict_rule_file = os.getenv("VERDICT_RULES_FILE")
         if verdict_rule_file is not None:
@@ -137,7 +140,9 @@ class TestRunner:
         test_framework_exit_codes = []
         total = len(self.suite.testExecutions)
         for num, test in enumerate(self.suite.testExecutions):
-            with Executor(test, self.iut, self.etos) as executor:
+            with Executor(
+                test, self.iut, self.etos, trace_environment=self.trace_environment
+            ) as executor:
                 self.logger.info(
                     "Test %d/%d starting: testCase.id %r",
                     num + 1,
@@ -361,8 +366,12 @@ class TestRunner:
         """
         test_suite_started = None
         self._active_execution_span = tracer().start_span(
-            "etos.subsuite.execute", context=self.trace_context
+            "etos.runner.execute", context=self.trace_context
         )
+        execution_context_token = otel_context.attach(
+            trace.set_span_in_context(self._active_execution_span, self.trace_context)
+        )
+        self.trace_environment = inject_context(self._active_execution_span, self.trace_context)
         self._active_execution_span.add_event("etos.subsuite.started")
         execution_started = time.monotonic()
         record_milestone("execution", "started")
@@ -432,5 +441,6 @@ class TestRunner:
                 time.monotonic() - execution_started,
             )
             self._active_execution_span.add_event("etos.subsuite.finished")
+            otel_context.detach(execution_context_token)
             self._active_execution_span.end()
             flush()

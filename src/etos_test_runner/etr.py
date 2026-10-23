@@ -30,6 +30,8 @@ from importlib.metadata import version
 from pprint import pprint
 from typing import Optional, Union
 
+from opentelemetry import context as otel_context
+from opentelemetry import trace
 from etos_lib import ETOS
 from etos_lib.kubernetes.schemas.v1beta1.environment import (
     EnvironmentSpec as V1Beta1EnvironmentSpec,
@@ -253,6 +255,9 @@ class ETR:
             ),
         )
         startup = tracer().start_span("etos.runner.startup", context=self.trace_context)
+        startup_context_token = otel_context.attach(
+            trace.set_span_in_context(startup, self.trace_context)
+        )
         startup_started = time.monotonic()
         try:
             startup.add_event("runner.startup.started")
@@ -298,6 +303,7 @@ class ETR:
             )
             raise
         finally:
+            otel_context.detach(startup_context_token)
             startup.end()
         # test_runner.execute() will publish TestSuiteStarted and TestSuiteFinished events to manage
         # if there are any failures, no need for status events after this point.

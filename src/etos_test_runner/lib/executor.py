@@ -63,7 +63,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
     test_regex = {}
     logger = logging.getLogger("Executor")
 
-    def __init__(self, test, iut, etos):
+    def __init__(self, test, iut, etos, trace_environment: dict[str, str] | None = None) -> None:
         """Initialize.
 
         :param test: Test to execute.
@@ -72,6 +72,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         :type iut: :obj:`etr.lib.iut.Iut`
         :param etos: ETOS library instance.
         :type etos: :obj:`etos_lib.etos.Etos`
+        :param trace_environment: W3C trace context variables for the test subprocess.
         """
         self.load_regex()
         self.test = test
@@ -88,6 +89,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
         self.iut = iut
         self.context = self.suite.context
         self.plugins = self.etos.config.get("plugins")
+        self.trace_environment = trace_environment or {}
         self.result = True
         self.returncode = None
 
@@ -394,8 +396,14 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             command = self._build_test_command()
 
             self.logger.info("Run test command: %r", command)
+            environment = os.environ.copy()
+            environment.update(self.trace_environment)
             iterator = self._iterable_call(
-                [command], shell=True, executable="/bin/bash", output=self.report_path
+                [command],
+                shell=True,
+                executable="/bin/bash",
+                output=self.report_path,
+                env=environment,
             )
 
             self.logger.info("Wait for test to finish.")
