@@ -15,8 +15,9 @@
 # limitations under the License.
 """Tests for bounded test-runner tracing helpers."""
 
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from opentelemetry import baggage, trace
@@ -25,8 +26,15 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
+from etos_test_runner import etr
+from etos_test_runner.lib import executor as executor_module
 from etos_test_runner.lib import tracing, testrunner
-from etos_test_runner.lib.tracing import extract_launch_context, record_error, set_outcome
+from etos_test_runner.lib.tracing import (
+    extract_launch_context,
+    inject_context,
+    record_error,
+    set_outcome,
+)
 
 
 def test_extract_launch_context_uses_w3c_parent():
@@ -60,6 +68,151 @@ def test_extract_launch_context_accepts_provider_lowercase_keys():
     assert span.get_span_context().trace_id == int("4bf92f3577b34da6a3ce929d0e0e4736", 16)
     assert span.get_span_context().span_id == int("00f067aa0ba902b7", 16)
     assert baggage.get_baggage("custom_correlation", context) == "value"
+
+
+def test_inject_context_exports_execution_span_and_launch_state() -> None:
+    """Test subprocess context is the execution span with inherited trace state and baggage."""
+    parent_context = extract_launch_context(
+        {
+            "TRACEPARENT": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            "TRACESTATE": "congo=t61rcWkgMzE",
+            "BAGGAGE": "testrun_id=run-1",
+        }
+    )
+    provider = TracerProvider()
+    span = provider.get_tracer("test").start_span("etos.runner.execute", context=parent_context)
+
+    environment = inject_context(span, parent_context)
+
+    assert environment["TRACEPARENT"].split("-")[2] == f"{span.get_span_context().span_id:016x}"
+    assert environment["TRACESTATE"] == "congo=t61rcWkgMzE"
+    assert environment["BAGGAGE"] == "testrun_id=run-1"
+    span.end()
+    provider.shutdown()
+
+
+def test_startup_span_is_active_during_plugin_loading(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Startup operations run with the startup span as their current context.
+
+    :param monkeypatch: Pytest fixture for replacing runner dependencies.
+    """
+    provider = TracerProvider()
+    runner = etr.ETR.__new__(etr.ETR)
+    runner.trace_context = extract_launch_context({})
+    runner.etos = Mock()
+    runner.etos.config.get.return_value = "suite-1"
+    runner.environment_id = "environment-1"
+    runner.environment_url = "https://example.test/suite"
+    suite = SimpleNamespace(iut=Mock())
+    test_runner = Mock()
+
+    monkeypatch.setattr(etr.FORMAT_CONFIG, "identifier", "suite-1", raising=False)
+    monkeypatch.setattr(etr, "EventPublisher", Mock())
+    monkeypatch.setattr(etr, "tracer", lambda: provider.get_tracer("test"))
+    monkeypatch.setattr(etr, "record_milestone", Mock())
+    monkeypatch.setattr(etr, "flush", Mock())
+    monkeypatch.setattr(etr, "Iut", Mock())
+    monkeypatch.setattr(etr, "TestRunner", Mock(return_value=test_runner))
+    monkeypatch.setattr(runner, "download_and_load", Mock(return_value=suite))
+    monkeypatch.setattr(runner, "configure_eiffel_publisher", Mock())
+
+    def check_startup_context() -> None:
+        """Verify plugin loading has the startup span active."""
+        assert trace.get_current_span().name == "etos.runner.startup"
+
+    monkeypatch.setattr(runner, "load_plugins", check_startup_context)
+
+    runner.run_etr()
+
+    test_runner.execute.assert_called_once_with()
+    provider.shutdown()
+
+
+def test_execution_span_is_active_during_test_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test test execution uses the execution span as its current context."""
+    provider = TracerProvider()
+    runner = testrunner.TestRunner.__new__(testrunner.TestRunner)
+    runner.trace_context = extract_launch_context({})
+    runner.suite = SimpleNamespace(name="suite")
+    setattr(runner, "_result", True)
+    setattr(runner, "_outcome", {"verdict": "PASSED", "conclusion": "SUCCESSFUL"})
+    setattr(runner, "_active_execution_span", None)
+    runner.trace_environment = {}
+    runner.verdict_matcher = Mock()
+    runner.verdict_matcher.evaluate.return_value = None
+    runner.logger = Mock()
+    runner.log_area = Mock()
+    runner.etos = Mock()
+    runner.etos.config.get.return_value = 0
+    runner.etos.events.send_test_suite_finished.return_value = SimpleNamespace(pretty="finished")
+    setattr(runner.etos.publisher, "_deliveries", [])
+
+    started = SimpleNamespace(meta=SimpleNamespace(event_id="sub-suite-1"))
+    monkeypatch.setattr(testrunner, "tracer", lambda: provider.get_tracer("test"))
+    monkeypatch.setattr(testrunner, "record_milestone", Mock())
+    monkeypatch.setattr(testrunner, "flush", Mock())
+    monkeypatch.setattr(runner, "_test_suite_triggered", Mock())
+    monkeypatch.setattr(runner, "test_suite_started", Mock(return_value=started))
+    monkeypatch.setattr(runner, "_test_suite_started", Mock())
+    monkeypatch.setattr(runner, "environment", Mock())
+    execution_context = {}
+
+    def run_tests(_workspace: Mock) -> None:
+        """Capture the current span while running tests."""
+        active_span = trace.get_current_span()
+        execution_context["name"] = active_span.name
+        execution_context["span_id"] = active_span.get_span_context().span_id
+
+    monkeypatch.setattr(runner, "_run_and_finalize", run_tests)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = Mock()
+    monkeypatch.setattr(testrunner, "Workspace", Mock(return_value=workspace))
+
+    assert runner.execute() == 0
+    assert execution_context["name"] == "etos.runner.execute"
+    assert (
+        runner.trace_environment["TRACEPARENT"].split("-")[2]
+        == f"{execution_context['span_id']:016x}"
+    )
+    assert trace.get_current_span().get_span_context().is_valid is False
+    provider.shutdown()
+
+
+def test_executor_passes_trace_environment_to_test_process(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Test process inherits its environment and receives the execution trace carrier.
+
+    :param monkeypatch: Pytest fixture for controlling the parent environment.
+    :param tmp_path: Temporary test workspace directory.
+    """
+    trace_environment = {
+        "TRACEPARENT": "00-trace-execution",
+        "TRACESTATE": "vendor=value",
+        "BAGGAGE": "testrun_id=run-1",
+    }
+
+    process = Mock(returncode=0)
+    test_executor = executor_module.Executor.__new__(executor_module.Executor)
+    test_executor.test = SimpleNamespace(execution=SimpleNamespace(checkout=[]))
+    test_executor.report_path = "test_output.log"
+    test_executor.logger = Mock()
+    test_executor.test_regex = {}
+    test_executor.trace_environment = trace_environment
+    iterable_call = Mock(return_value=iter([(process, "finished")]))
+    setattr(test_executor, "_build_environment_command", Mock(return_value=[]))
+    setattr(test_executor, "_pre_execution", Mock())
+    setattr(test_executor, "_build_test_command", Mock(return_value="test command"))
+    setattr(test_executor, "_iterable_call", iterable_call)
+    workspace = MagicMock()
+    workspace.test_directory.return_value.__enter__.return_value = tmp_path
+    monkeypatch.setenv("ETR_PARENT_VARIABLE", "inherited")
+
+    test_executor.execute(workspace, retries=1)
+
+    environment = iterable_call.call_args.kwargs["env"]
+    assert environment["ETR_PARENT_VARIABLE"] == "inherited"
+    assert all(environment[key] == value for key, value in trace_environment.items())
 
 
 def test_outcome_is_bounded_and_does_not_record_free_text():
@@ -354,6 +507,7 @@ def test_run_tests_does_not_emit_execution_events(monkeypatch):
     runner.iut = Mock()
     runner.etos = Mock()
     runner.logger = Mock()
+    runner.trace_environment = {"TRACEPARENT": "00-trace-execution"}
     span = Mock()
     monkeypatch.setattr(runner, "_active_execution_span", span, raising=False)
     executor = Mock(result=True, returncode=0, results={})
@@ -365,5 +519,6 @@ def test_run_tests_does_not_emit_execution_events(monkeypatch):
 
     assert runner.run_tests(workspace) == (True, [0])
     executor.execute.assert_called_once_with(workspace)
+    assert factory.call_args.kwargs["trace_environment"] == runner.trace_environment
     assert runner.logger.info.call_count == 2
     span.add_event.assert_not_called()

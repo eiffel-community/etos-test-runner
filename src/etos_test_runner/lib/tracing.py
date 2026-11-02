@@ -68,6 +68,20 @@ def extract_launch_context(environ: Optional[Mapping[str, str]] = None):
     return _PROPAGATOR.extract(normalized, context=otel_context.Context())
 
 
+def inject_context(
+    span: Span, parent_context: Optional[otel_context.Context] = None
+) -> dict[str, str]:
+    """Inject a span and its baggage into uppercase W3C environment variables.
+
+    :param span: Span to propagate.
+    :param parent_context: Context containing inherited trace state and baggage.
+    :return: Uppercase W3C propagation fields.
+    """
+    carrier = {}
+    _PROPAGATOR.inject(carrier, context=trace.set_span_in_context(span, parent_context))
+    return {key.upper(): value for key, value in carrier.items()}
+
+
 def cluster_identity() -> str:
     """Use ETOS_CLUSTER and ETOS_NAMESPACE or propagated baggage to add etos_cluster attributes."""
     namespace = os.getenv("ETOS_NAMESPACE", "").strip()
