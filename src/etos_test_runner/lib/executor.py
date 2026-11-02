@@ -309,6 +309,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
 
         signal.signal(signal.SIGALRM, _subprocess_signal_handler)
         output_file = None
+        test_logger = logging.getLogger("TestOutput")
         try:
             if output:
                 # pylint:disable=consider-using-with
@@ -316,7 +317,7 @@ class Executor:  # pylint:disable=too-many-instance-attributes
             # Make sure you can read all output with 'docker logs'
             for line in iter(proc.stdout.readline, b""):
                 yield proc, line.decode("utf-8")
-                self.logger.info(line.decode("utf-8").strip())
+                test_logger.info(line.decode("utf-8").strip())
                 signal.alarm(0)
 
                 if output_file:
